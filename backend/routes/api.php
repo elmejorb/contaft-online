@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CatalogoController;
 use App\Http\Controllers\Tenant\ClienteController;
 use App\Http\Controllers\Tenant\EmpresaConfigController;
 use App\Http\Controllers\Tenant\FamiliaController;
@@ -18,6 +19,12 @@ Route::get('/ping', fn () => response()->json([
     'time'    => now()->toDateTimeString(),
     'version' => '0.1.0',
 ]));
+
+// ============================================================
+// CATÁLOGOS DIAN — públicos (los usa el signup + el form de clientes)
+// ============================================================
+Route::get('/catalogos',            [CatalogoController::class, 'index']);
+Route::get('/catalogos/municipios', [CatalogoController::class, 'municipios']);
 
 // ============================================================
 // LANDLORD — signup + login públicos, resto requiere token

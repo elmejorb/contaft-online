@@ -1,31 +1,34 @@
 -- ==============================================================
--- Conta FT Online — Template de BD por TENANT (empresa cliente)
+-- Conta FT Online — Tablas de TENANT (row-level multi-tenant)
 --
--- Este archivo se ejecuta AL CREAR una nueva empresa. El backend
--- Laravel hace:
---   CREATE DATABASE u408713046_cli_{slug};
---   USE u408713046_cli_{slug};
---   SOURCE 02-tenant-template.sql;
+-- Estas tablas viven en la MISMA BD que el landlord
+-- (u408713046_dbcontaft). Cada fila lleva `empresa_id` que apunta a
+-- landlord.empresas.id → aislamiento por scope global en Eloquent.
 --
--- MVP incluye solo lo esencial para las Fases 1-3:
+-- MVP incluye lo esencial para las Fases 1-3:
 --   * empresa_config
 --   * clientes, productos, familias, kardex
 --   * ventas, venta_lineas, venta_retenciones
 --   * pagos, medios_pago, retenciones
---   * vw_facturas_saldo  (ya con fix descuento desde diseño)
+--   * vw_facturas_saldo  (con fix descuento desde diseño)
 --
--- Módulos avanzados (compras, gastos, cajas, facturas recibidas)
--- se agregan en fases siguientes vía migrations Laravel.
+-- REGLA CRÍTICA: cada tabla tenant tiene:
+--   - Columna `empresa_id INT UNSIGNED NOT NULL`
+--   - FK a `empresas(id) ON DELETE CASCADE`
+--   - Índice compuesto que empieza por `empresa_id`
+--
+-- Idempotente — se puede correr varias veces sin romper.
 -- ==============================================================
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ==============================================================
--- CONFIGURACIÓN DE LA EMPRESA (fila única)
+-- CONFIGURACIÓN OPERATIVA DE CADA EMPRESA (1 fila por empresa)
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS empresa_config (
-    id                              INT UNSIGNED PRIMARY KEY DEFAULT 1,
+    id                              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id                      INT UNSIGNED NOT NULL,
     iva_incluido                    TINYINT(1) NOT NULL DEFAULT 1,
     resolucion_fe                   VARCHAR(30)  NULL,
     resolucion_fecha                DATE         NULL,
@@ -42,7 +45,6 @@ CREATE TABLE IF NOT EXISTS empresa_config (
     usar_lotes                      TINYINT(1)   NOT NULL DEFAULT 0,
     imprimir_cotizacion             TINYINT(1)   NOT NULL DEFAULT 1,
     logo_path                       VARCHAR(500) NULL,
-    -- Representante legal (requerido por DIAN para eventos de acuse)
     representante_tipo_doc_id       INT          NULL,
     representante_numero            VARCHAR(30)  NULL,
     representante_dv                VARCHAR(2)   NULL,
@@ -53,13 +55,13 @@ CREATE TABLE IF NOT EXISTS empresa_config (
     representante_cargo             VARCHAR(80)  NOT NULL DEFAULT 'Representante Legal',
     representante_area              VARCHAR(80)  NOT NULL DEFAULT 'Administración',
     created_at                      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at                      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at                      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_empresa (empresa_id),
+    CONSTRAINT fk_econfig_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO empresa_config (id) VALUES (1) ON DUPLICATE KEY UPDATE id = id;
-
 -- ==============================================================
--- CATÁLOGOS BÁSICOS (formas y medios de pago)
+-- CATÁLOGOS COMPARTIDOS (globales — sin empresa_id)
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS medios_pago (
     id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -79,16 +81,20 @@ INSERT INTO medios_pago (nombre, tipo, orden) VALUES
     ('Cheque',        'cheque',        6)
 ON DUPLICATE KEY UPDATE nombre = VALUES(nombre);
 
+-- Retenciones: cada empresa configura las suyas
 CREATE TABLE IF NOT EXISTS retenciones (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    codigo        VARCHAR(20) NOT NULL UNIQUE,
+    empresa_id    INT UNSIGNED NOT NULL,
+    codigo        VARCHAR(20) NOT NULL,
     nombre        VARCHAR(100) NOT NULL,
-    codigo_dian   VARCHAR(4)  NULL,             -- 05 ReteIVA, 06 ReteFuente, 07 ReteICA
+    codigo_dian   VARCHAR(4)  NULL,
     porcentaje    DECIMAL(6,3) NOT NULL,
     base_desde    DECIMAL(15,2) NOT NULL DEFAULT 0,
     tipo_calculo  ENUM('sobre_base','gross_up') NOT NULL DEFAULT 'sobre_base',
     activo        TINYINT(1) NOT NULL DEFAULT 1,
-    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_empresa_codigo (empresa_id, codigo),
+    CONSTRAINT fk_ret_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==============================================================
@@ -96,10 +102,11 @@ CREATE TABLE IF NOT EXISTS retenciones (
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS clientes (
     id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    codigo                VARCHAR(20) NULL,               -- código interno
+    empresa_id            INT UNSIGNED NOT NULL,
+    codigo                VARCHAR(20) NULL,
     razon_social          VARCHAR(200) NOT NULL,
     tipo_persona          ENUM('natural','juridica') NOT NULL DEFAULT 'natural',
-    tipo_documento_id     INT NULL,                       -- catálogo DIAN
+    tipo_documento_id     INT NULL,
     identificacion        VARCHAR(30) NOT NULL,
     dv                    VARCHAR(2) NULL,
     nombre_comercial      VARCHAR(200) NULL,
@@ -118,25 +125,24 @@ CREATE TABLE IF NOT EXISTS clientes (
     activo                TINYINT(1) NOT NULL DEFAULT 1,
     created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_identificacion (identificacion),
-    KEY idx_razon (razon_social),
-    KEY idx_activo (activo)
+    UNIQUE KEY uq_empresa_identificacion (empresa_id, identificacion),
+    KEY idx_empresa_razon (empresa_id, razon_social),
+    KEY idx_empresa_activo (empresa_id, activo),
+    CONSTRAINT fk_cli_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Cliente genérico "Ventas al Contado" (id=1 reservado)
-INSERT INTO clientes (id, codigo, razon_social, tipo_persona, identificacion, activo)
-VALUES (1, '999999', 'VENTAS AL CONTADO', 'natural', '222222222222', 1)
-ON DUPLICATE KEY UPDATE razon_social = VALUES(razon_social);
 
 CREATE TABLE IF NOT EXISTS vendedores (
     id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    usuario_id     INT UNSIGNED NULL,                    -- link al landlord.usuarios si es user real
+    empresa_id     INT UNSIGNED NOT NULL,
+    usuario_id     INT UNSIGNED NULL,
     nombre         VARCHAR(150) NOT NULL,
     telefono       VARCHAR(50) NULL,
     comision_pct   DECIMAL(5,2) NOT NULL DEFAULT 0,
     zona           VARCHAR(100) NULL,
     activo         TINYINT(1) NOT NULL DEFAULT 1,
-    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_empresa (empresa_id, activo),
+    CONSTRAINT fk_vend_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==============================================================
@@ -144,26 +150,29 @@ CREATE TABLE IF NOT EXISTS vendedores (
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS familias (
     id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id INT UNSIGNED NOT NULL,
     codigo     VARCHAR(20) NULL,
     nombre     VARCHAR(100) NOT NULL,
     padre_id   INT UNSIGNED NULL,
     orden      INT NOT NULL DEFAULT 0,
     activo     TINYINT(1) NOT NULL DEFAULT 1,
-    KEY idx_padre (padre_id)
+    KEY idx_empresa (empresa_id, activo),
+    KEY idx_padre (padre_id),
+    CONSTRAINT fk_fam_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS productos (
     id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    codigo               VARCHAR(30) NOT NULL UNIQUE,
+    empresa_id           INT UNSIGNED NOT NULL,
+    codigo               VARCHAR(30) NOT NULL,
     codigo_barras        VARCHAR(50) NULL,
     nombre               VARCHAR(200) NOT NULL,
     descripcion          TEXT NULL,
     familia_id           INT UNSIGNED NULL,
-    unidad_medida_id     INT NULL,                        -- catálogo DIAN
+    unidad_medida_id     INT NULL,
     es_servicio          TINYINT(1) NOT NULL DEFAULT 0,
     tiene_componentes    TINYINT(1) NOT NULL DEFAULT 0,
     tiene_lotes          TINYINT(1) NOT NULL DEFAULT 0,
-    -- Precios YA con IVA incluido cuando iva_incluido = 1
     precio_costo         DECIMAL(15,4) NOT NULL DEFAULT 0,
     precio_venta_1       DECIMAL(15,4) NOT NULL DEFAULT 0,
     precio_venta_2       DECIMAL(15,4) NOT NULL DEFAULT 0,
@@ -178,39 +187,46 @@ CREATE TABLE IF NOT EXISTS productos (
     activo               TINYINT(1) NOT NULL DEFAULT 1,
     created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_familia (familia_id),
-    KEY idx_barras (codigo_barras),
-    KEY idx_nombre (nombre),
-    KEY idx_activo (activo, es_servicio)
+    UNIQUE KEY uq_empresa_codigo (empresa_id, codigo),
+    KEY idx_empresa_familia (empresa_id, familia_id),
+    KEY idx_empresa_barras (empresa_id, codigo_barras),
+    KEY idx_empresa_nombre (empresa_id, nombre),
+    KEY idx_empresa_activo (empresa_id, activo, es_servicio),
+    CONSTRAINT fk_prod_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS producto_componentes (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id    INT UNSIGNED NOT NULL,
     padre_id      INT UNSIGNED NOT NULL,
     componente_id INT UNSIGNED NOT NULL,
     cantidad      DECIMAL(15,3) NOT NULL,
-    KEY idx_padre (padre_id)
+    KEY idx_empresa_padre (empresa_id, padre_id),
+    CONSTRAINT fk_pc_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS producto_lotes (
     id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id         INT UNSIGNED NOT NULL,
     producto_id        INT UNSIGNED NOT NULL,
     codigo_lote        VARCHAR(50) NOT NULL,
     fecha_vencimiento  DATE NULL,
     existencia         DECIMAL(15,3) NOT NULL DEFAULT 0,
     precio_costo       DECIMAL(15,4) NOT NULL DEFAULT 0,
     created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_producto_venc (producto_id, fecha_vencimiento)
+    KEY idx_empresa_producto_venc (empresa_id, producto_id, fecha_vencimiento),
+    CONSTRAINT fk_lote_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Kardex — INMUTABLE. Nunca DELETE. Correcciones vía asientos opuestos.
+-- Kardex INMUTABLE
 CREATE TABLE IF NOT EXISTS kardex (
     id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id        INT UNSIGNED NOT NULL,
     fecha             DATETIME NOT NULL,
     producto_id       INT UNSIGNED NOT NULL,
     tipo              ENUM('entrada','salida','ajuste','reverso','anulacion') NOT NULL,
     concepto          VARCHAR(200) NOT NULL,
-    referencia_tipo   VARCHAR(30) NULL,          -- 'venta','compra','ajuste_manual','reverso',...
+    referencia_tipo   VARCHAR(30) NULL,
     referencia_id     INT UNSIGNED NULL,
     cantidad_entrada  DECIMAL(15,3) NOT NULL DEFAULT 0,
     cantidad_salida   DECIMAL(15,3) NOT NULL DEFAULT 0,
@@ -218,10 +234,11 @@ CREATE TABLE IF NOT EXISTS kardex (
     costo_movimiento  DECIMAL(15,2) NOT NULL DEFAULT 0,
     saldo_cantidad    DECIMAL(15,3) NOT NULL DEFAULT 0,
     saldo_costo       DECIMAL(15,2) NOT NULL DEFAULT 0,
-    usuario_id        INT UNSIGNED NULL,          -- landlord.usuarios.id
+    usuario_id        INT UNSIGNED NULL,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_producto_fecha (producto_id, fecha),
-    KEY idx_ref (referencia_tipo, referencia_id)
+    KEY idx_empresa_producto_fecha (empresa_id, producto_id, fecha),
+    KEY idx_empresa_ref (empresa_id, referencia_tipo, referencia_id),
+    CONSTRAINT fk_kdx_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==============================================================
@@ -229,7 +246,8 @@ CREATE TABLE IF NOT EXISTS kardex (
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS ventas (
     id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    numero                INT NOT NULL UNIQUE,
+    empresa_id            INT UNSIGNED NOT NULL,
+    numero                INT NOT NULL,
     tipo_documento        ENUM('pos','electronica','soporte','cotizacion') NOT NULL DEFAULT 'pos',
     tipo_termino          ENUM('contado','credito') NOT NULL DEFAULT 'contado',
     dias_credito          INT NOT NULL DEFAULT 0,
@@ -242,20 +260,16 @@ CREATE TABLE IF NOT EXISTS ventas (
     total_iva             DECIMAL(15,2) NOT NULL DEFAULT 0,
     total                 DECIMAL(15,2) NOT NULL DEFAULT 0,
     comentario            TEXT NULL,
-
-    -- Cobros
     medio_pago_id         INT UNSIGNED NULL,
     efectivo              DECIMAL(15,2) NOT NULL DEFAULT 0,
     transferencia         DECIMAL(15,2) NOT NULL DEFAULT 0,
     cambio                DECIMAL(15,2) NOT NULL DEFAULT 0,
     abono_inicial         DECIMAL(15,2) NOT NULL DEFAULT 0,
-
-    -- FE — se persisten desde el INSERT (bug histórico corregido)
-    payment_form_id       INT NULL,             -- 1 Contado, 2 Crédito (catálogo DIAN)
-    payment_method_id     INT NULL,             -- 10 Efectivo, 14 Tarjeta, 30 Transf
+    payment_form_id       INT NULL,
+    payment_method_id     INT NULL,
     payment_due_days      INT NULL,
     prefijo_fe            VARCHAR(4) NULL,
-    numero_fe             BIGINT NULL,          -- consecutivo DIAN
+    numero_fe             BIGINT NULL,
     cufe                  VARCHAR(96) NULL,
     cufe_url_qr           VARCHAR(500) NULL,
     dian_estado           ENUM('borrador','pendiente','enviado','autorizado','rechazado','anulado') NULL,
@@ -263,8 +277,6 @@ CREATE TABLE IF NOT EXISTS ventas (
     enviada_dian_at       DATETIME NULL,
     email_enviado         TINYINT(1) NOT NULL DEFAULT 0,
     email_enviado_at      DATETIME NULL,
-
-    -- Estado
     estado                ENUM('valida','anulada','borrador') NOT NULL DEFAULT 'valida',
     anulada_at            DATETIME NULL,
     anulada_por           INT UNSIGNED NULL,
@@ -273,23 +285,24 @@ CREATE TABLE IF NOT EXISTS ventas (
     autorizado_por        INT UNSIGNED NULL,
     en_contingencia       TINYINT(1) NOT NULL DEFAULT 0,
     contingencia_motivo   VARCHAR(255) NULL,
-
     created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_numero (numero),
-    KEY idx_fecha (fecha),
-    KEY idx_cliente (cliente_id),
-    KEY idx_estado_dian (estado, dian_estado),
-    KEY idx_cufe (cufe),
-    KEY idx_tipo_termino (tipo_documento, tipo_termino, estado)
+    UNIQUE KEY uq_empresa_numero (empresa_id, numero),
+    UNIQUE KEY uq_cufe (cufe),
+    KEY idx_empresa_fecha (empresa_id, fecha),
+    KEY idx_empresa_cliente (empresa_id, cliente_id),
+    KEY idx_empresa_estado (empresa_id, estado, dian_estado),
+    KEY idx_empresa_tipo (empresa_id, tipo_documento, tipo_termino, estado),
+    CONSTRAINT fk_venta_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS venta_lineas (
     id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id            INT UNSIGNED NOT NULL,
     venta_id              INT UNSIGNED NOT NULL,
     linea_num             INT NOT NULL,
     producto_id           INT UNSIGNED NOT NULL,
-    descripcion_temp      VARCHAR(300) NULL,        -- concepto editable para servicios
+    descripcion_temp      VARCHAR(300) NULL,
     cantidad              DECIMAL(15,3) NOT NULL,
     precio_costo          DECIMAL(15,4) NOT NULL DEFAULT 0,
     precio_venta          DECIMAL(15,4) NOT NULL,
@@ -298,35 +311,39 @@ CREATE TABLE IF NOT EXISTS venta_lineas (
     descuento_monto       DECIMAL(15,2) NOT NULL DEFAULT 0,
     subtotal              DECIMAL(15,2) NOT NULL DEFAULT 0,
     total_linea           DECIMAL(15,2) NOT NULL DEFAULT 0,
-    KEY idx_venta (venta_id),
+    KEY idx_empresa_venta (empresa_id, venta_id),
     KEY idx_producto (producto_id),
-    CONSTRAINT fk_vl_venta FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE
+    CONSTRAINT fk_vl_venta FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_vl_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS venta_retenciones (
     id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    empresa_id     INT UNSIGNED NOT NULL,
     venta_id       INT UNSIGNED NOT NULL,
     retencion_id   INT UNSIGNED NOT NULL,
     porcentaje     DECIMAL(6,3) NOT NULL,
     base           DECIMAL(15,2) NOT NULL,
     valor          DECIMAL(15,2) NOT NULL,
     modo           ENUM('inf','gross_up') NOT NULL DEFAULT 'inf',
-    KEY idx_venta (venta_id),
-    CONSTRAINT fk_vr_venta FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE
+    KEY idx_empresa_venta (empresa_id, venta_id),
+    CONSTRAINT fk_vr_venta FOREIGN KEY (venta_id) REFERENCES ventas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_vr_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==============================================================
--- PAGOS + CARTERA
+-- PAGOS
 -- ==============================================================
 CREATE TABLE IF NOT EXISTS pagos (
     id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    consecutivo    INT NOT NULL UNIQUE,
+    empresa_id     INT UNSIGNED NOT NULL,
+    consecutivo    INT NOT NULL,
     fecha          DATETIME NOT NULL,
     cliente_id     INT UNSIGNED NOT NULL,
     venta_id       INT UNSIGNED NOT NULL,
     medio_pago_id  INT UNSIGNED NOT NULL,
     valor          DECIMAL(15,2) NOT NULL,
-    descuento      DECIMAL(15,2) NOT NULL DEFAULT 0,   -- ← se SUMA a valor para calcular saldo
+    descuento      DECIMAL(15,2) NOT NULL DEFAULT 0,
     retencion      DECIMAL(15,2) NOT NULL DEFAULT 0,
     detalle        VARCHAR(300) NULL,
     usuario_id     INT UNSIGNED NOT NULL,
@@ -335,27 +352,28 @@ CREATE TABLE IF NOT EXISTS pagos (
     anulado_por    INT UNSIGNED NULL,
     anulado_motivo VARCHAR(500) NULL,
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_cliente_venta (cliente_id, venta_id),
-    KEY idx_fecha (fecha),
-    KEY idx_estado (estado)
+    UNIQUE KEY uq_empresa_consecutivo (empresa_id, consecutivo),
+    KEY idx_empresa_cliente_venta (empresa_id, cliente_id, venta_id),
+    KEY idx_empresa_fecha (empresa_id, fecha),
+    KEY idx_empresa_estado (empresa_id, estado),
+    CONSTRAINT fk_pago_empresa FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ==============================================================
--- VISTAS DE CARTERA
--- Ya incluye el fix del descuento (bug histórico del desktop).
--- Solo cuenta ventas VÁLIDAS + pagos VÁLIDOS + suma ValorPago + Descuento.
+-- VISTAS DE CARTERA — fix descuento desde diseño
 -- ==============================================================
 DROP VIEW IF EXISTS vw_facturas_saldo;
 CREATE VIEW vw_facturas_saldo AS
 SELECT
-    v.id                                             AS venta_id,
+    v.id                                              AS venta_id,
+    v.empresa_id,
     v.numero,
     v.cliente_id,
     v.fecha,
     v.dias_credito,
-    DATE_ADD(v.fecha, INTERVAL v.dias_credito DAY)   AS fecha_vencimiento,
+    DATE_ADD(v.fecha, INTERVAL v.dias_credito DAY)    AS fecha_vencimiento,
     v.total,
-    COALESCE(p.total_pagado, 0)                       AS total_pagado,
+    COALESCE(p.total_pagado, 0)                        AS total_pagado,
     GREATEST(v.total - COALESCE(p.total_pagado, 0), 0) AS saldo,
     CASE
       WHEN CURDATE() > DATE_ADD(v.fecha, INTERVAL v.dias_credito DAY)
@@ -365,14 +383,14 @@ SELECT
     CURDATE() > DATE_ADD(v.fecha, INTERVAL v.dias_credito DAY) AS vencida
 FROM ventas v
 LEFT JOIN (
-    SELECT venta_id,
+    SELECT empresa_id, venta_id,
            SUM(valor + COALESCE(descuento, 0)) AS total_pagado
     FROM pagos
     WHERE estado = 'valida'
       AND valor >= 0
       AND COALESCE(descuento, 0) >= 0
-    GROUP BY venta_id
-) p ON p.venta_id = v.id
+    GROUP BY empresa_id, venta_id
+) p ON p.venta_id = v.id AND p.empresa_id = v.empresa_id
 WHERE v.tipo_termino = 'credito'
   AND v.estado = 'valida'
   AND v.tipo_documento IN ('pos','electronica','soporte');
@@ -381,6 +399,7 @@ DROP VIEW IF EXISTS vw_cartera_cliente;
 CREATE VIEW vw_cartera_cliente AS
 SELECT
     c.id                              AS cliente_id,
+    c.empresa_id,
     c.razon_social,
     c.identificacion,
     c.cupo_credito,
@@ -389,20 +408,20 @@ SELECT
     COALESCE(SUM(CASE WHEN vfs.vencida = 1 THEN vfs.saldo ELSE 0 END), 0) AS saldo_vencido,
     MAX(vfs.dias_vencido)             AS max_dias_vencido
 FROM clientes c
-LEFT JOIN vw_facturas_saldo vfs ON vfs.cliente_id = c.id AND vfs.saldo > 0
+LEFT JOIN vw_facturas_saldo vfs
+       ON vfs.cliente_id = c.id
+      AND vfs.empresa_id = c.empresa_id
+      AND vfs.saldo > 0
 WHERE c.activo = 1
-GROUP BY c.id;
+GROUP BY c.id, c.empresa_id;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- ==============================================================
--- Verificación
--- ==============================================================
-SELECT '✓ Tenant template aplicado' AS resultado;
-SELECT COUNT(*) AS total_tablas
+SELECT '✓ Tenant tables aplicadas' AS resultado;
+SELECT COUNT(*) AS total_tablas_tenant
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_TYPE   = 'BASE TABLE';
-SELECT COUNT(*) AS total_vistas
-FROM information_schema.VIEWS
-WHERE TABLE_SCHEMA = DATABASE();
+  AND TABLE_NAME IN ('empresa_config','medios_pago','retenciones','clientes',
+                     'vendedores','familias','productos','producto_componentes',
+                     'producto_lotes','kardex','ventas','venta_lineas',
+                     'venta_retenciones','pagos');

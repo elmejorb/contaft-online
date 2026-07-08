@@ -11,7 +11,7 @@ cambies algo estructural, actualízalo acá primero.
 
 | # | Decisión | Justificación breve |
 |---|---|---|
-| D1 | **Multi-tenant = BD por empresa** | Aislamiento máximo, mismo modelo mental que el desktop, migración directa (`mysqldump` cliente-por-cliente). |
+| D1 | **Multi-tenant = row-level** (columna `empresa_id` en cada tabla, todas en `u408713046_dbcontaft`) | Hostinger compartido NO permite `CREATE DATABASE` al usuario MySQL — descartado schema-per-tenant. Row-level da: 1 BD para backup, migraciones simples, reportes cross-empresa fáciles. Aislamiento garantizado por **EmpresaScope global** en Eloquent (imposible olvidar el filtro). |
 | D2 | **Backend Laravel 11 + Sanctum** | Ya conoces Lumen (api-electronica). PHP 8.2.30 disponible en Hostinger. Sanctum resuelve auth SPA sin JWT propio. |
 | D3 | **Frontend SPA React + Vite** (separada) | Build → subir `dist/`. Consume la API por REST. Reutilizamos componentes del desktop (`NuevaVenta.tsx`, `InventarioManagement.tsx`, etc.). |
 | D4 | **BD: MariaDB 11.8 en Hostinger** | Descartado PostgreSQL — hosting compartido solo MySQL/MariaDB. |
@@ -53,55 +53,83 @@ cambies algo estructural, actualízalo acá primero.
 
 ---
 
-## 3. Estrategia multi-tenant
+## 3. Estrategia multi-tenant (row-level)
 
 ### Signup
 
 1. Usuario visita `facturacion.innovacion-digital.com/signup`.
 2. Rellena: razón social, NIT, email, password, plan.
 3. POST `/api/landlord/signup` →
-   - INSERT en `landlord.empresas` con `bd_name = u408713046_cli_{slug}`.
-   - INSERT en `landlord.usuarios` con `empresa_id`.
-   - `CREATE DATABASE u408713046_cli_{slug}`.
-   - Aplicar `sql/02-tenant-template.sql` sobre esa BD nueva.
-   - Trial 14 días activo.
+   - INSERT en `empresas` (una fila más en la única BD).
+   - INSERT en `usuarios` + vinculación en `usuarios_empresas` con `rol='admin'`.
+   - INSERT en `empresa_config` con defaults (`iva_incluido=1`, `moneda='COP'`).
+   - Registro en `audit_log`.
+   - Trial de 14 días activo.
 4. Login con token Sanctum → toda request lleva `Authorization: Bearer …`.
 
-### Middleware `TenantMiddleware`
+### Middleware `ResolveTenant`
 
-Cada request autenticada resuelve el tenant así:
+Cada request autenticada resuelve la **empresa activa** (sin cambiar conexiones DB):
 
 ```php
-public function handle(Request $request, Closure $next)
+public function handle(Request $request, Closure $next): Response
 {
-    $user = $request->user();          // Sanctum
-    $empresa = $user->empresa;         // relación en landlord
-    if (!$empresa || !$empresa->activa) {
-        abort(403, 'Empresa suspendida o sin suscripción');
+    $user = $request->user();  // Sanctum
+    if (!$user) return response()->json(['error' => 'No autenticado'], 401);
+
+    // Empresa activa por header X-Empresa-Id o la default del usuario
+    $empresa = $request->header('X-Empresa-Id')
+        ? $user->empresas()->wherePivot('activo',1)->find((int) $request->header('X-Empresa-Id'))
+        : $user->empresaDefault();
+
+    if (!$empresa || !$empresa->puedeOperar()) {
+        return response()->json(['error' => 'Empresa suspendida o sin suscripción'], 403);
     }
-    // Cambia conexión PDO al schema de este tenant
-    config([
-        'database.connections.tenant.database' => $empresa->bd_name,
-    ]);
-    DB::purge('tenant');
-    DB::connection('tenant')->reconnect();
+
+    // Adjuntar al request. EmpresaScope la lee de aquí.
+    $request->attributes->set('empresa', $empresa);
     return $next($request);
 }
 ```
 
-Los modelos de dominio (Cliente, Producto, Venta, etc.) usan `->on('tenant')` o
-tienen `protected $connection = 'tenant'` — siempre resuelven contra la BD del
-tenant activo.
+### Aislamiento por Global Scope
 
-Los modelos del landlord (Empresa, Usuario, Plan) usan la conexión default.
+Todos los modelos tenant (Cliente, Producto, Venta, Pago, etc.) usan el trait
+**`BelongsToEmpresa`**, que agrega automáticamente:
+
+```php
+static::addGlobalScope(new EmpresaScope);
+
+static::creating(function ($model) {
+    if (empty($model->empresa_id)) {
+        $model->empresa_id = BelongsToEmpresa::empresaIdActual();
+    }
+});
+```
+
+`EmpresaScope` inyecta un `WHERE empresa_id = X` a **toda query** — imposible
+olvidarlo:
+
+```php
+Cliente::all();
+// → SELECT * FROM clientes WHERE empresa_id = 42   (auto)
+Cliente::create(['razon_social' => 'ACME', 'identificacion' => '900...']);
+// → INSERT ... (empresa_id, razon_social, ...) VALUES (42, 'ACME', ...)   (auto)
+```
+
+Los modelos del landlord (Empresa, Usuario, Plan) NO usan el trait — son
+globales entre empresas.
 
 ### Aislamiento garantizado
 
-- **Cross-tenant queries imposibles**: si te olvidas del middleware, la conexión
-  `tenant` apunta a una BD que no existe → error 500 explícito, no fuga de datos.
-- **Backups por cliente**: `mysqldump u408713046_cli_ammi > backup.sql`.
-- **Baja de cliente**: `DROP DATABASE u408713046_cli_ammi` + UPDATE empresas
-  SET activa=0.
+- **Cross-tenant queries imposibles** en modelos con `BelongsToEmpresa`: el
+  scope global filtra siempre. Un desarrollador olvidadizo NO puede leer datos
+  de otra empresa por accidente.
+- **Backups**: 1 solo `mysqldump u408713046_dbcontaft` respalda TODO el SaaS.
+- **Baja de cliente**: `DELETE FROM empresas WHERE id = X` — la FK `ON DELETE
+  CASCADE` limpia clientes/productos/ventas/etc. automáticamente.
+- **Reportes cross-empresa (super-admin)**: fáciles con
+  `->withoutGlobalScope(EmpresaScope::class)`.
 
 ---
 

@@ -1,4 +1,4 @@
-import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ButtonHTMLAttributes, MouseEvent } from 'react';
+import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ButtonHTMLAttributes } from 'react';
 import { X } from 'lucide-react';
 
 /* ================================================================
@@ -145,6 +145,10 @@ export function Toggle({
 }
 
 // ---------- Modal (con polish) ----------
+// El modal NO se cierra al hacer click en el backdrop — solo con la X del
+// header o el botón Cancelar del footer. Evita cerrarlo por accidente y
+// perder cambios no guardados. Regla aplicada a todos los modales del
+// sistema por defecto.
 export function Modal({
   open, onClose, title, subtitle, children, footer, size = 'md',
 }: {
@@ -158,14 +162,9 @@ export function Modal({
 }) {
   if (!open) return null;
   const width = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' }[size];
-  const stop = (e: MouseEvent) => e.stopPropagation();
   return (
-    <div
-      className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div
-        onClick={stop}
         className={`bg-white rounded-2xl shadow-2xl w-full ${width} max-h-[92vh] flex flex-col overflow-hidden border border-gray-200`}
       >
         {/* Header con gradient — más compacto */}

@@ -3,9 +3,17 @@ import { Plus, Search, Pencil, Trash2, RefreshCw, Package, Wrench } from 'lucide
 import toast from 'react-hot-toast';
 import { api, showApiError } from '../lib/api';
 import {
-  PageHeader, Card, Button, Field, Input, Select, Textarea,
-  Modal, Table, Th, Td, EmptyState,
+  PageHeader, Card, Button, Table, Th, Td, EmptyState,
 } from '../components/ui';
+import { ProductoModal, type ProductoForm } from './ProductoModal';
+
+/* ================================================================
+ * Modelo de BD (backend Laravel) vs modelo del form:
+ *   - BD tiene snake_case (precio_costo, precio_venta_1, iva_pct…)
+ *   - El modal usa nombres del desktop (Precio_Costo, Precio_Venta…)
+ *   Se convierten en toForm() / toApi() — así el ProductoModal es un
+ *   port 1:1 del desktop y no hay que renombrar campos por dentro.
+ * ============================================================== */
 
 interface Producto {
   id: number;
@@ -14,26 +22,85 @@ interface Producto {
   nombre: string;
   descripcion: string | null;
   familia_id: number | null;
+  etiqueta: string | null;
   es_servicio: boolean;
   precio_costo: string | number;
   precio_venta_1: string | number;
+  precio_venta_2: string | number;
+  precio_venta_3: string | number;
+  precio_minimo: string | number;
   iva_pct: string | number;
   existencia: string | number;
   existencia_minima: string | number;
+  ubicacion: string | null;
+  proveedor_id: number | null;
   activo: boolean;
 }
 
 interface Familia { id: number; nombre: string }
 
-const empty: Partial<Producto> = {
-  es_servicio: false,
-  iva_pct: 19,
-  precio_costo: 0,
-  precio_venta_1: 0,
-  existencia: 0,
-  existencia_minima: 0,
-  activo: true,
-};
+/* Etiquetas hardcodeadas por ahora — cuando se implemente CRUD de etiquetas
+   se cambia por endpoint. Se guardan como string en productos.etiqueta.
+   El modal usa Id_Etiqueta numérico, así que mapeamos por índice+1. */
+const ETIQUETAS = [
+  { id: 1, nombre: 'Nuevo' },
+  { id: 2, nombre: 'Oferta' },
+  { id: 3, nombre: 'Destacado' },
+  { id: 4, nombre: 'Descontinuado' },
+];
+
+function toForm(p: Producto | null): ProductoForm {
+  if (!p) return formVacio();
+  return {
+    Items: p.id,
+    Codigo: p.codigo ?? '',
+    Nombres_Articulo: p.nombre ?? '',
+    Precio_Costo:  Number(p.precio_costo)  || 0,
+    Precio_Venta:  Number(p.precio_venta_1) || 0,
+    Precio_Venta2: Number(p.precio_venta_2) || 0,
+    Precio_Venta3: Number(p.precio_venta_3) || 0,
+    Precio_Minimo: Number(p.precio_minimo)  || 0,
+    Iva: Number(p.iva_pct) || 0,
+    Existencia: Number(p.existencia) || 0,
+    Existencia_minima: Number(p.existencia_minima) || 0,
+    Id_Categoria: p.familia_id ?? 0,
+    CodigoPro: p.proveedor_id ?? 0,
+    Estante: p.ubicacion ?? '',
+    Estado: p.activo ? 1 : 0,
+    Servicio: p.es_servicio ? 1 : 0,
+    Id_Etiqueta: ETIQUETAS.find((et) => et.nombre === p.etiqueta)?.id ?? 0,
+  };
+}
+
+function formVacio(): ProductoForm {
+  return {
+    Items: 0, Codigo: '', Nombres_Articulo: '',
+    Precio_Costo: 0, Precio_Venta: 0, Precio_Venta2: 0, Precio_Venta3: 0,
+    Precio_Minimo: 0, Iva: 19, Existencia: 0, Existencia_minima: 0,
+    Id_Categoria: 0, CodigoPro: 0, Estante: '', Estado: 1, Servicio: 0, Id_Etiqueta: 0,
+  };
+}
+
+function toApi(f: ProductoForm) {
+  return {
+    codigo: f.Codigo,
+    nombre: f.Nombres_Articulo,
+    familia_id: f.Id_Categoria || null,
+    proveedor_id: f.CodigoPro || null,
+    etiqueta: ETIQUETAS.find((et) => et.id === f.Id_Etiqueta)?.nombre ?? null,
+    es_servicio: f.Servicio === 1,
+    precio_costo: f.Precio_Costo,
+    precio_venta_1: f.Precio_Venta,
+    precio_venta_2: f.Precio_Venta2,
+    precio_venta_3: f.Precio_Venta3,
+    precio_minimo: f.Precio_Minimo,
+    iva_pct: f.Iva,
+    existencia: f.Existencia,
+    existencia_minima: f.Existencia_minima,
+    ubicacion: f.Estante || null,
+    activo: f.Estado === 1,
+  };
+}
 
 const fmt = (v: number | string | null | undefined) =>
   '$ ' + Math.round(Number(v ?? 0)).toLocaleString('es-CO');
@@ -44,15 +111,15 @@ export function ProductosPage() {
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'productos' | 'servicios'>('todos');
-  const [editing, setEditing] = useState<Partial<Producto> | null>(null);
+  const [editing, setEditing] = useState<{ form: ProductoForm; esNuevo: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function cargar() {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { q: busqueda, per_page: 100 };
-      if (tipoFiltro === 'servicios')  params.es_servicio = 1;
-      if (tipoFiltro === 'productos')  params.es_servicio = 0;
+      if (tipoFiltro === 'servicios') params.es_servicio = 1;
+      if (tipoFiltro === 'productos') params.es_servicio = 0;
       const [prodRes, famRes] = await Promise.all([
         api.get<{ data: Producto[] }>('/productos', { params }),
         api.get<{ familias: Familia[] }>('/familias'),
@@ -74,14 +141,20 @@ export function ProductosPage() {
 
   async function guardar() {
     if (!editing) return;
+    const { form, esNuevo } = editing;
+    if (!form.Codigo || !form.Nombres_Articulo) {
+      toast.error('Código y descripción son obligatorios');
+      return;
+    }
     setSaving(true);
     try {
-      if (editing.id) {
-        await api.put(`/productos/${editing.id}`, editing);
-        toast.success('Producto actualizado');
-      } else {
-        await api.post('/productos', editing);
+      const payload = toApi(form);
+      if (esNuevo) {
+        await api.post('/productos', payload);
         toast.success('Producto creado');
+      } else {
+        await api.put(`/productos/${form.Items}`, payload);
+        toast.success('Producto actualizado');
       }
       setEditing(null);
       await cargar();
@@ -103,7 +176,8 @@ export function ProductosPage() {
     }
   }
 
-  const famNombre = (id: number | null) => id ? (familias.find(f => f.id === id)?.nombre ?? '—') : '—';
+  const famNombre = (id: number | null) =>
+    id ? (familias.find((f) => f.id === id)?.nombre ?? '—') : '—';
 
   return (
     <div className="p-6">
@@ -115,7 +189,7 @@ export function ProductosPage() {
             <Button variant="secondary" onClick={cargar}>
               <RefreshCw size={14} /> Refrescar
             </Button>
-            <Button onClick={() => setEditing({ ...empty })}>
+            <Button onClick={() => setEditing({ form: formVacio(), esNuevo: true })}>
               <Plus size={14} /> Nuevo producto
             </Button>
           </>
@@ -163,7 +237,7 @@ export function ProductosPage() {
               <tr>
                 <Th>Código</Th>
                 <Th>Nombre</Th>
-                <Th>Familia</Th>
+                <Th>Categoría</Th>
                 <Th>Tipo</Th>
                 <Th className="text-right">Costo</Th>
                 <Th className="text-right">Venta</Th>
@@ -199,7 +273,7 @@ export function ProductosPage() {
                   <Td>
                     <div className="flex gap-1 justify-end">
                       <button
-                        onClick={() => setEditing(p)}
+                        onClick={() => setEditing({ form: toForm(p), esNuevo: false })}
                         title="Editar"
                         className="w-7 h-7 rounded hover:bg-gray-100 flex items-center justify-center text-gray-600"
                       >
@@ -221,147 +295,20 @@ export function ProductosPage() {
         )}
       </Card>
 
-      {/* Modal crear/editar */}
-      <Modal
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing?.id ? 'Editar producto' : 'Nuevo producto'}
-        size="lg"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button onClick={guardar} disabled={saving}>
-              {saving ? 'Guardando…' : 'Guardar'}
-            </Button>
-          </>
-        }
-      >
-        {editing && (
-          <div className="space-y-4">
-            {/* Toggle producto/servicio */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setEditing({ ...editing, es_servicio: false })}
-                className={`flex-1 h-16 rounded-lg border-2 flex items-center justify-center gap-2 transition ${
-                  !editing.es_servicio ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500'
-                }`}
-              >
-                <Package size={20} />
-                <div className="text-left">
-                  <div className="font-semibold text-sm">Producto físico</div>
-                  <div className="text-[10px]">Con inventario</div>
-                </div>
-              </button>
-              <button
-                onClick={() => setEditing({ ...editing, es_servicio: true })}
-                className={`flex-1 h-16 rounded-lg border-2 flex items-center justify-center gap-2 transition ${
-                  editing.es_servicio ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500'
-                }`}
-              >
-                <Wrench size={20} />
-                <div className="text-left">
-                  <div className="font-semibold text-sm">Servicio</div>
-                  <div className="text-[10px]">Sin inventario</div>
-                </div>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Código" required>
-                <Input
-                  value={editing.codigo ?? ''}
-                  onChange={(e) => setEditing({ ...editing, codigo: e.target.value.toUpperCase() })}
-                />
-              </Field>
-              <Field label="Código de barras">
-                <Input
-                  value={editing.codigo_barras ?? ''}
-                  onChange={(e) => setEditing({ ...editing, codigo_barras: e.target.value })}
-                  disabled={editing.es_servicio}
-                />
-              </Field>
-              <Field label="Nombre" required className="md:col-span-2">
-                <Input
-                  value={editing.nombre ?? ''}
-                  onChange={(e) => setEditing({ ...editing, nombre: e.target.value })}
-                />
-              </Field>
-              <Field label="Familia" className="md:col-span-2">
-                <Select
-                  value={editing.familia_id ?? ''}
-                  onChange={(e) => setEditing({ ...editing, familia_id: e.target.value ? parseInt(e.target.value) : null })}
-                >
-                  <option value="">— Sin familia —</option>
-                  {familias.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-                </Select>
-              </Field>
-              <Field label="Descripción" className="md:col-span-2">
-                <Textarea
-                  rows={2}
-                  value={editing.descripcion ?? ''}
-                  onChange={(e) => setEditing({ ...editing, descripcion: e.target.value })}
-                />
-              </Field>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Precios (IVA incluido)</div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Field label={editing.es_servicio ? 'Costo referencial' : 'Precio costo'}>
-                  <Input
-                    type="number"
-                    value={editing.precio_costo ?? 0}
-                    onChange={(e) => setEditing({ ...editing, precio_costo: parseFloat(e.target.value) || 0 })}
-                    min={0} step="0.01"
-                  />
-                </Field>
-                <Field label="Precio venta">
-                  <Input
-                    type="number"
-                    value={editing.precio_venta_1 ?? 0}
-                    onChange={(e) => setEditing({ ...editing, precio_venta_1: parseFloat(e.target.value) || 0 })}
-                    min={0} step="0.01"
-                  />
-                </Field>
-                <Field label="IVA %">
-                  <Select
-                    value={editing.iva_pct ?? 19}
-                    onChange={(e) => setEditing({ ...editing, iva_pct: parseFloat(e.target.value) })}
-                  >
-                    <option value={0}>0%</option>
-                    <option value={5}>5%</option>
-                    <option value={19}>19%</option>
-                  </Select>
-                </Field>
-              </div>
-            </div>
-
-            {!editing.es_servicio && (
-              <div className="border-t pt-4">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Inventario</div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Existencia actual">
-                    <Input
-                      type="number"
-                      value={editing.existencia ?? 0}
-                      onChange={(e) => setEditing({ ...editing, existencia: parseFloat(e.target.value) || 0 })}
-                      step="0.001"
-                    />
-                  </Field>
-                  <Field label="Existencia mínima" hint="Alerta cuando baje de este valor">
-                    <Input
-                      type="number"
-                      value={editing.existencia_minima ?? 0}
-                      onChange={(e) => setEditing({ ...editing, existencia_minima: parseFloat(e.target.value) || 0 })}
-                      min={0} step="0.001"
-                    />
-                  </Field>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      {editing && (
+        <ProductoModal
+          isOpen
+          onClose={() => setEditing(null)}
+          form={editing.form}
+          onChange={(f) => setEditing({ ...editing, form: f })}
+          onSave={guardar}
+          saving={saving}
+          categorias={familias.map((f) => ({ id: f.id, nombre: f.nombre }))}
+          proveedores={[]}
+          etiquetas={ETIQUETAS}
+          esNuevo={editing.esNuevo}
+        />
+      )}
     </div>
   );
 }

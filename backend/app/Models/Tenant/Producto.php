@@ -22,8 +22,9 @@ class Producto extends Model
         'familia_id', 'unidad_medida_id',
         'es_servicio', 'tiene_componentes', 'tiene_lotes',
         'precio_costo', 'precio_venta_1', 'precio_venta_2', 'precio_venta_3',
+        'precio_minimo',
         'iva_pct', 'existencia', 'existencia_minima',
-        'ubicacion', 'proveedor_id', 'imagen_path', 'notas', 'activo',
+        'ubicacion', 'etiqueta', 'proveedor_id', 'imagen_path', 'notas', 'activo',
     ];
 
     protected $casts = [
@@ -34,6 +35,7 @@ class Producto extends Model
         'precio_venta_1'    => 'decimal:4',
         'precio_venta_2'    => 'decimal:4',
         'precio_venta_3'    => 'decimal:4',
+        'precio_minimo'     => 'decimal:4',
         'iva_pct'           => 'decimal:2',
         'existencia'        => 'decimal:3',
         'existencia_minima' => 'decimal:3',

@@ -109,20 +109,26 @@ export function ClientesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);
 
-  async function abrirEditar(cliente: Cliente) {
-    // Traer detalle con contactos
-    try {
-      const { data } = await api.get<{ cliente: Cliente }>(`/clientes/${cliente.id}`);
-      setEditing({
-        ...data.cliente,
-        contactos: data.cliente.contactos_notificacion ?? [],
-      });
-      // Cargar municipios del departamento del cliente
-      if (data.cliente.departamento_id) {
-        buscarMunicipios(data.cliente.departamento_id).then(setMunicipios);
-      }
-    } catch (e) {
-      showApiError(e, 'No se pudo cargar el cliente');
+  function abrirEditar(cliente: Cliente) {
+    // Modal abre INSTANTÁNEAMENTE con los datos que ya tenemos del listado.
+    // Contactos + municipios se cargan en segundo plano y se anexan al
+    // formulario cuando llegan — sin bloquear la apertura.
+    setEditing({ ...cliente, contactos: [] });
+    setMunicipios([]);
+
+    // Fetch en paralelo del detalle + municipios del departamento
+    api.get<{ cliente: Cliente }>(`/clientes/${cliente.id}`)
+      .then(({ data }) => {
+        // Mergear los contactos que llegaron — respeta ediciones si el usuario
+        // ya empezó a tipear en otros campos mientras se cargaba
+        setEditing((cur) => cur && cur.id === cliente.id
+          ? { ...cur, contactos: data.cliente.contactos_notificacion ?? [] }
+          : cur);
+      })
+      .catch((e) => showApiError(e, 'No se pudieron cargar los contactos'));
+
+    if (cliente.departamento_id) {
+      buscarMunicipios(cliente.departamento_id).then(setMunicipios).catch(() => {});
     }
   }
 

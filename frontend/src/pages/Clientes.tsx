@@ -332,7 +332,7 @@ export function ClientesPage() {
                     />
                     {editing.dv && (
                       <div
-                        className="w-9 h-9 rounded-md bg-primary-50 text-primary-700 border border-primary-200 flex items-center justify-center font-bold text-sm"
+                        className="w-8 h-8 rounded-md bg-primary-50 text-primary-700 border border-primary-200 flex items-center justify-center font-bold text-xs"
                         title="Dígito de verificación (calculado automáticamente)"
                       >
                         {editing.dv}
@@ -540,9 +540,9 @@ export function ClientesPage() {
                       <button
                         onClick={() => removeContacto(i)}
                         title="Quitar"
-                        className="md:col-span-1 w-9 h-9 rounded-md bg-white border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center"
+                        className="md:col-span-1 w-8 h-8 rounded-md bg-white border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center"
                       >
-                        <X size={14} />
+                        <X size={12} />
                       </button>
                     </div>
                   ))}
@@ -564,10 +564,13 @@ export function ClientesPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="mb-2">
-        <div className="text-xs font-semibold text-primary-600 uppercase tracking-wide">{title}</div>
-        {subtitle && <div className="text-[11px] text-gray-500 mt-0.5">{subtitle}</div>}
+    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+      <div className="mb-3 pb-2 border-b border-primary-100 flex items-start gap-2">
+        <div className="w-1 h-4 bg-primary-500 rounded-sm mt-0.5" />
+        <div>
+          <div className="text-xs font-bold text-primary-700 uppercase tracking-widest">{title}</div>
+          {subtitle && <div className="text-[10px] text-gray-500 mt-0.5">{subtitle}</div>}
+        </div>
       </div>
       {children}
     </div>

@@ -77,21 +77,24 @@ export function Field({
   return (
     <label className={`block ${className}`}>
       {label && (
-        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider leading-none block mb-1">
+          {label}{required && <span className="text-red-400 ml-0.5">*</span>}
         </span>
       )}
-      <div className="mt-0.5">{children}</div>
-      {hint && !error && <span className="text-[10px] text-gray-400 mt-0.5 block">{hint}</span>}
-      {error && <span className="text-[10px] text-red-600 mt-0.5 block">{error}</span>}
+      <div>{children}</div>
+      {hint && !error && <span className="text-[10px] text-gray-400 mt-0.5 block leading-tight">{hint}</span>}
+      {error && <span className="text-[10px] text-red-600 mt-0.5 block leading-tight">{error}</span>}
     </label>
   );
 }
 
+// Inputs: text-sm + font-medium para que el CONTENIDO destaque sobre
+// los labels (que son text-[10px] uppercase). El contraste tipográfico
+// hace que el ojo vaya al dato, no al rótulo.
 const inputBase =
-  'w-full h-8 px-2.5 border border-gray-300 rounded-md text-xs bg-white text-gray-900 ' +
+  'w-full h-8 px-2.5 border border-gray-300 rounded-md text-sm font-medium bg-white text-gray-900 ' +
   'focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 ' +
-  'disabled:bg-gray-50 disabled:text-gray-500 placeholder:text-gray-400';
+  'disabled:bg-gray-50 disabled:text-gray-500 placeholder:text-gray-400 placeholder:font-normal';
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -115,7 +118,7 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 placeholder:text-gray-400 ${props.className ?? ''}`}
+      className={`w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 placeholder:text-gray-400 placeholder:font-normal ${props.className ?? ''}`}
     />
   );
 }
@@ -165,11 +168,11 @@ export function Modal({
         onClick={stop}
         className={`bg-white rounded-2xl shadow-2xl w-full ${width} max-h-[92vh] flex flex-col overflow-hidden border border-gray-200`}
       >
-        {/* Header con gradient */}
-        <div className="px-5 py-3 bg-gradient-to-r from-primary-600 via-primary-600 to-primary-700 flex items-center justify-between shrink-0">
+        {/* Header con gradient — más compacto */}
+        <div className="px-4 py-2.5 bg-gradient-to-r from-primary-600 via-primary-600 to-primary-700 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-white text-base font-bold tracking-tight">{title}</h2>
-            {subtitle && <p className="text-primary-100 text-[11px] mt-0.5">{subtitle}</p>}
+            <h2 className="text-white text-sm font-bold tracking-tight">{title}</h2>
+            {subtitle && <p className="text-primary-100 text-[10px] mt-0.5 leading-tight">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
@@ -178,11 +181,11 @@ export function Modal({
             <X size={16} />
           </button>
         </div>
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5 bg-gray-50/40">{children}</div>
+        {/* Body — padding reducido para más densidad */}
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">{children}</div>
         {/* Footer */}
         {footer && (
-          <div className="px-5 py-3 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
+          <div className="px-4 py-2.5 border-t border-gray-200 bg-white flex justify-end gap-2 shrink-0">
             {footer}
           </div>
         )}

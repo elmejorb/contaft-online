@@ -313,10 +313,10 @@ export function ClientesPage() {
         }
       >
         {editing && catalogos && (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {/* ---------- DATOS BÁSICOS ---------- */}
             <Section title="Datos básicos">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
                 <Field label="Nombre / Razón Social" required className="md:col-span-5">
                   <Input
                     value={editing.razon_social ?? ''}
@@ -363,7 +363,7 @@ export function ClientesPage() {
 
             {/* ---------- DATOS FISCALES DIAN ---------- */}
             <Section title="Datos fiscales (DIAN)">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <Field label="Tipo documento">
                   <Select
                     value={editing.tipo_documento_id ?? ''}
@@ -447,7 +447,7 @@ export function ClientesPage() {
 
             {/* ---------- CONTACTO ---------- */}
             <Section title="Contacto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <Field label="Email">
                   <Input
                     type="email"
@@ -498,11 +498,11 @@ export function ClientesPage() {
               subtitle="Estos correos reciben copia (Cc) cuando se envía la factura por email. No aparecen en el PDF impreso."
             >
               {(editing.contactos ?? []).length === 0 ? (
-                <div className="text-xs text-gray-400 mb-3">Sin contactos agregados</div>
+                <div className="text-xs text-gray-400 mb-2">Sin contactos agregados</div>
               ) : (
-                <div className="space-y-2 mb-3">
+                <div className="space-y-1.5 mb-2">
                   {(editing.contactos ?? []).map((c, i) => (
-                    <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start bg-gray-50 rounded-lg p-2">
+                    <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-1.5 items-center bg-gray-50 rounded-md p-1.5">
                       <Select
                         className="md:col-span-2"
                         value={c.tipo}
@@ -564,14 +564,12 @@ export function ClientesPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-      <div className="mb-3 pb-2 border-b border-primary-100 flex items-start gap-2">
-        <div className="w-1 h-4 bg-primary-500 rounded-sm mt-0.5" />
-        <div>
-          <div className="text-xs font-bold text-primary-700 uppercase tracking-widest">{title}</div>
-          {subtitle && <div className="text-[10px] text-gray-500 mt-0.5">{subtitle}</div>}
-        </div>
+    <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm">
+      <div className="mb-2 flex items-center gap-1.5">
+        <div className="w-1 h-3.5 bg-primary-500 rounded-sm" />
+        <div className="text-[11px] font-bold text-primary-700 uppercase tracking-widest">{title}</div>
       </div>
+      {subtitle && <div className="text-[10px] text-gray-500 -mt-1 mb-2 ml-2.5 leading-tight">{subtitle}</div>}
       {children}
     </div>
   );

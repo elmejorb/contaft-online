@@ -10,6 +10,7 @@ import { DatosEmpresaPage } from './pages/DatosEmpresa';
 import { ClientesPage } from './pages/Clientes';
 import { ProductosPage } from './pages/Productos';
 import { FamiliasPage } from './pages/Familias';
+import { ProveedoresPage } from './pages/Proveedores';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, loading } = useAuth();
@@ -33,9 +34,10 @@ function App() {
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route path="/"           element={<DashboardPage />} />
             <Route path="/empresa"    element={<DatosEmpresaPage />} />
-            <Route path="/clientes"   element={<ClientesPage />} />
-            <Route path="/productos"  element={<ProductosPage />} />
-            <Route path="/familias"   element={<FamiliasPage />} />
+            <Route path="/clientes"    element={<ClientesPage />} />
+            <Route path="/proveedores" element={<ProveedoresPage />} />
+            <Route path="/productos"   element={<ProductosPage />} />
+            <Route path="/familias"    element={<FamiliasPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,6 +6,7 @@ use App\Http\Controllers\Tenant\ClienteController;
 use App\Http\Controllers\Tenant\EmpresaConfigController;
 use App\Http\Controllers\Tenant\FamiliaController;
 use App\Http\Controllers\Tenant\ProductoController;
+use App\Http\Controllers\Tenant\ProveedorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -67,9 +68,10 @@ Route::middleware(['auth:sanctum', 'resolve.tenant'])->group(function () {
     Route::put('/empresa-config',  [EmpresaConfigController::class, 'update']);
 
     // === Datos maestros ===
-    Route::apiResource('clientes',  ClienteController::class);
-    Route::apiResource('productos', ProductoController::class);
-    Route::apiResource('familias',  FamiliaController::class)->except(['show']);
+    Route::apiResource('clientes',    ClienteController::class);
+    Route::apiResource('productos',   ProductoController::class);
+    Route::apiResource('familias',    FamiliaController::class)->except(['show']);
+    Route::apiResource('proveedores', ProveedorController::class);
 
     // Próximamente: /ventas, /pagos, /kardex, /facturas-recibidas, ...
 });

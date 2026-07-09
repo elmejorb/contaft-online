@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { showApiError } from '../lib/api';
+import { LoadingScreen } from '../components/LoadingScreen';
 
 export function LoginPage() {
   const nav = useNavigate();
@@ -12,19 +12,41 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // Splash entre login exitoso y navegación al dashboard. Toma el hueco
+  // de las 2 llamadas HTTP (/login + /me) y hace que la transición se
+  // sienta intencional en vez de "pantalla congelada".
+  const [redirecting, setRedirecting] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
+      // Mostramos el splash apenas empieza el login — así el POST /login
+      // + GET /me quedan cubiertos con la animación.
+      setRedirecting(true);
       await login(email, password);
-      toast.success('Bienvenido');
+      // Pequeño delay para que el usuario alcance a leer "Bienvenido…"
+      await new Promise((r) => setTimeout(r, 350));
       nav('/', { replace: true });
     } catch (err) {
+      setRedirecting(false);
       showApiError(err, 'No se pudo iniciar sesión');
     } finally {
       setLoading(false);
     }
+  }
+
+  if (redirecting) {
+    return (
+      <LoadingScreen
+        cyclingMessages={[
+          'Verificando credenciales…',
+          'Cargando tu empresa…',
+          'Preparando el panel…',
+          '¡Bienvenido!',
+        ]}
+      />
+    );
   }
 
   return (

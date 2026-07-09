@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import type { JSX } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppLayout } from './layouts/AppLayout';
+import { LoadingScreen } from './components/LoadingScreen';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
 import { DashboardPage } from './pages/Dashboard';
@@ -15,7 +16,7 @@ import { ProveedoresPage } from './pages/Proveedores';
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, loading } = useAuth();
   const loc = useLocation();
-  if (loading) return <div className="p-8 text-gray-400">Cargando…</div>;
+  if (loading) return <LoadingScreen message="Restaurando sesión…" />;
   if (!usuario) return <Navigate to="/login" state={{ from: loc }} replace />;
   return children;
 }

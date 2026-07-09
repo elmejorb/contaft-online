@@ -4,7 +4,9 @@ import toast from 'react-hot-toast';
 /**
  * Cliente HTTP para la API de Conta FT Online.
  *
- * - En dev: apunta a http://localhost:8001/api (Laravel serve local).
+ * - En dev: apunta a http://127.0.0.1:8000/api (php artisan serve default).
+ *   Se puede override con VITE_API_URL en .env.local si el usuario corre
+ *   el server en otro puerto/host.
  * - En prod: apunta a /api (misma origen — servido junto al build en Hostinger).
  *
  * Auth: token Sanctum en `localStorage['token']` como Bearer en cada request.
@@ -13,7 +15,7 @@ import toast from 'react-hot-toast';
 
 const API_BASE =
   import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? 'http://localhost:8001/api' : '/api');
+  (import.meta.env.DEV ? 'http://127.0.0.1:8000/api' : '/api');
 
 export const api = axios.create({
   baseURL: API_BASE,

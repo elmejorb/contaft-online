@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react';
 
 /* ================================================================
- * LoadingScreen — splash violeta con marca. Se usa:
- *   1. Bootstrap inicial (App carga /landlord/me para restaurar sesión)
- *   2. Después del submit de login mientras hace /login + /me
- *   3. En el switch de empresa (opcional)
+ * LoadingScreen — port fiel del splash del desktop Conta FT.
+ * Layout minimalista, jerárquico y elegante:
  *
- * Diseño:
- *   - Fondo gradient primary-600 → primary-800 fullscreen
- *   - Marca "Conta FT" grande, blanca, con fade-in
- *   - Spinner tipo "orbita" — 2 anillos que giran a distinta velocidad
- *   - Mensaje dinámico opcional que rota si tarda
- *   - Barra de progreso indeterminada abajo, sutil
+ *   [ Logo circular grande con anillo giratorio · glow interior ]
+ *
+ *                    Conta FT
+ *                   FACTURACIÓN
+ *
+ *              [ ● Verificando…       ]
+ *
+ * Sin barras de progreso separadas, sin spinner extra. El anillo
+ * giratorio VIVE dentro del propio logo. La píldora con LED cyan
+ * transmite el mensaje. Es más limpio y se lee como "app madura",
+ * no como demo con muchos elementos.
  * ============================================================== */
 
 interface Props {
-  /** Mensaje principal. Si no se pasa, no muestra texto. */
   message?: string;
-  /** Mensajes que rotan cada ~1.2s mientras el splash está visible. */
   cyclingMessages?: string[];
 }
 
@@ -28,67 +29,176 @@ export function LoadingScreen({ message, cyclingMessages }: Props) {
     if (!cyclingMessages || cyclingMessages.length < 2) return;
     const t = setInterval(() => {
       setIdx((i) => (i + 1) % cyclingMessages.length);
-    }, 1200);
+    }, 1400);
     return () => clearInterval(t);
   }, [cyclingMessages]);
 
   const currentMsg = cyclingMessages?.[idx] ?? message;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 overflow-hidden">
-      {/* Bloom decorativo — círculos difusos para dar profundidad */}
-      <div className="absolute top-1/4 -left-16 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute bottom-1/4 -right-16 w-96 h-96 rounded-full bg-primary-400/20 blur-3xl" />
+    <div
+      className="fixed inset-0 z-50 min-h-screen flex items-center justify-center p-4 overflow-hidden"
+      style={{
+        background:
+          'radial-gradient(ellipse at 30% 20%, #7c3aed 0%, #5b21b6 45%, #4c1d95 100%)',
+      }}
+    >
+      {/* Blob superior — brillo cálido morado */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: '-15%', left: '20%', width: 480, height: 480,
+          background: 'radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, transparent 60%)',
+          filter: 'blur(60px)', borderRadius: '50%',
+        }}
+      />
+      {/* Blob inferior — azul frío */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          bottom: '-10%', right: '10%', width: 420, height: 420,
+          background: 'radial-gradient(circle, rgba(96, 165, 250, 0.22) 0%, transparent 65%)',
+          filter: 'blur(60px)', borderRadius: '50%',
+        }}
+      />
 
-      <div className="relative flex flex-col items-center gap-8 animate-[fadeIn_400ms_ease-out]">
-        {/* Marca */}
-        <div className="text-center">
-          <div className="text-4xl font-bold text-white tracking-tight drop-shadow-sm">
-            Conta<span className="text-primary-200">FT</span>
+      {/* Contenido central */}
+      <div className="relative z-10 flex flex-col items-center enter-anim">
+        {/* ============ LOGO CIRCULAR GRANDE ============ */}
+        <div className="relative mb-8" style={{ width: 168, height: 168 }}>
+          {/* Anillo giratorio exterior — glow violeta */}
+          <div
+            className="absolute inset-0 rounded-full animate-spin"
+            style={{
+              background:
+                'conic-gradient(from 0deg, transparent 0deg, transparent 200deg, #c4b5fd 280deg, #a78bfa 340deg, transparent 360deg)',
+              animationDuration: '2.4s',
+              WebkitMask:
+                'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))',
+              mask:
+                'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))',
+              boxShadow: '0 0 30px rgba(167, 139, 250, 0.4)',
+            }}
+          />
+
+          {/* Círculo del logo — fondo violeta claro */}
+          <div
+            className="absolute rounded-full flex items-center justify-center"
+            style={{
+              inset: 12,
+              background:
+                'radial-gradient(circle at 30% 30%, #8b5cf6 0%, #6d28d9 70%, #5b21b6 100%)',
+              boxShadow:
+                'inset 0 2px 20px rgba(255,255,255,0.15), inset 0 -8px 24px rgba(0,0,0,0.25), 0 8px 32px rgba(0,0,0,0.35)',
+            }}
+          >
+            {/* Ícono: documento + moneda dorada. SVG inline para mimetizar
+                exactamente al appIcon del desktop (documento con líneas +
+                moneda amarilla al lado). */}
+            <svg viewBox="0 0 100 100" width="88" height="88" aria-hidden>
+              {/* Documento */}
+              <g transform="translate(18 22)">
+                <rect
+                  x="0" y="0" width="46" height="58" rx="4"
+                  fill="#ffffff"
+                  stroke="rgba(0,0,0,0.08)" strokeWidth="1"
+                />
+                <path d="M 6 12 h 30" stroke="#c4b5fd" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M 6 20 h 30" stroke="#c4b5fd" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M 6 28 h 20" stroke="#c4b5fd" strokeWidth="2.5" strokeLinecap="round" />
+                {/* Pie del documento con acento */}
+                <circle cx="10" cy="42" r="3" fill="#f59e0b" />
+                <path d="M 16 42 h 18" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" />
+                <path d="M 6 50 h 24" stroke="#c4b5fd" strokeWidth="2" strokeLinecap="round" />
+              </g>
+              {/* Moneda dorada apilada */}
+              <g transform="translate(52 46)">
+                <circle cx="16" cy="16" r="15"
+                  fill="url(#coinGrad)"
+                  stroke="#b45309" strokeWidth="1"
+                />
+                <circle cx="16" cy="16" r="11" fill="none" stroke="#78350f" strokeWidth="1" opacity="0.35" />
+                <text x="16" y="21" textAnchor="middle" fontSize="14" fontWeight="900" fill="#78350f" fontFamily="system-ui">$</text>
+              </g>
+              <defs>
+                <linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#fde68a" />
+                  <stop offset="55%" stopColor="#fbbf24" />
+                  <stop offset="100%" stopColor="#d97706" />
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          <div className="text-[11px] text-primary-100/80 uppercase tracking-[0.3em] mt-1 font-semibold">
-            Online
-          </div>
+
+          {/* Halo exterior sutil */}
+          <div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              inset: -6,
+              boxShadow: '0 0 60px 8px rgba(167, 139, 250, 0.25)',
+            }}
+          />
         </div>
 
-        {/* Spinner tipo órbita — 3 elementos giratorios */}
-        <div className="relative w-16 h-16">
-          {/* Anillo exterior — gira lento */}
-          <div className="absolute inset-0 rounded-full border-2 border-primary-300/30 border-t-white animate-spin" style={{ animationDuration: '1.4s' }} />
-          {/* Anillo interior — gira más rápido, sentido contrario */}
-          <div className="absolute inset-2 rounded-full border-2 border-primary-200/20 border-b-primary-200 animate-spin" style={{ animationDuration: '0.9s', animationDirection: 'reverse' }} />
-          {/* Punto central */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-white shadow-lg shadow-white/50 animate-pulse" />
+        {/* ============ Nombre ============ */}
+        <div className="text-center mb-1">
+          <div className="text-5xl text-white leading-none" style={{ letterSpacing: '-0.02em' }}>
+            <span className="font-light">Conta</span>{' '}
+            <span className="font-bold">FT</span>
           </div>
         </div>
+        <div
+          className="text-[11px] font-semibold mb-8"
+          style={{ color: '#c4b5fd', letterSpacing: '6px' }}
+        >
+          FACTURACIÓN
+        </div>
 
-        {/* Mensaje */}
+        {/* ============ Píldora del estado ============ */}
         {currentMsg && (
-          <div className="min-h-[20px]">
-            <div className="text-sm text-white/90 font-medium tracking-wide text-center animate-[fadeIn_300ms_ease-out]" key={currentMsg}>
+          <div
+            key={currentMsg}
+            className="msg-fade inline-flex items-center gap-2.5 px-4 py-2 rounded-full"
+            style={{
+              background: 'rgba(30, 27, 75, 0.55)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(196, 181, 253, 0.25)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            }}
+          >
+            {/* LED cyan pulsante */}
+            <span className="relative flex w-2 h-2">
+              <span
+                className="absolute inset-0 rounded-full animate-ping"
+                style={{ background: '#22d3ee', opacity: 0.75 }}
+              />
+              <span
+                className="relative rounded-full w-2 h-2"
+                style={{
+                  background: '#22d3ee',
+                  boxShadow: '0 0 8px rgba(34, 211, 238, 0.9)',
+                }}
+              />
+            </span>
+            <span className="text-sm font-medium text-white/95 tracking-wide whitespace-nowrap">
               {currentMsg}
-            </div>
+            </span>
           </div>
         )}
-
-        {/* Barra de progreso indeterminada */}
-        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full w-1/3 bg-white/70 rounded-full animate-[slide_1.6s_ease-in-out_infinite]" />
-        </div>
       </div>
 
-      {/* Keyframes locales — Tailwind no los conoce por defecto */}
+      {/* Animaciones locales */}
       <style>{`
-        @keyframes fadeIn {
+        @keyframes enter {
+          from { opacity: 0; transform: translateY(14px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+        .enter-anim { animation: enter 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes msgFade {
           from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0); }
+          to   { opacity: 1; transform: translateY(0);   }
         }
-        @keyframes slide {
-          0%   { transform: translateX(-100%); }
-          50%  { transform: translateX(200%); }
-          100% { transform: translateX(200%); }
-        }
+        .msg-fade { animation: msgFade 0.35s ease-out; }
       `}</style>
     </div>
   );

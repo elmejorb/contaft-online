@@ -6,7 +6,7 @@ import { AppLayout } from './layouts/AppLayout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { LoginPage } from './pages/Login';
 import { SignupPage } from './pages/Signup';
-import { DashboardPage } from './pages/Dashboard';
+import { InicioPage } from './pages/Inicio';
 import { DatosEmpresaPage } from './pages/DatosEmpresa';
 import { ClientesPage } from './pages/Clientes';
 import { ProductosPage } from './pages/Productos';
@@ -31,10 +31,15 @@ function App() {
           <Route path="/login"  element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
 
-          {/* Autenticadas — envueltas en AppLayout (sidebar + header) */}
+          {/* Home / pantalla de inicio — pantalla completa, sin AppLayout */}
+          <Route
+            path="/"
+            element={<RequireAuth><InicioPage /></RequireAuth>}
+          />
+
+          {/* Módulos — dentro del AppLayout (sidebar + header) */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-            <Route path="/"           element={<DashboardPage />} />
-            <Route path="/empresa"    element={<DatosEmpresaPage />} />
+            <Route path="/empresa"     element={<DatosEmpresaPage />} />
             <Route path="/clientes"    element={<ClientesPage />} />
             <Route path="/proveedores" element={<ProveedoresPage />} />
             <Route path="/productos"   element={<ProductosPage />} />

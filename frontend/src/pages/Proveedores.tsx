@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, RefreshCw, X, FileText, Receipt } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Plus, Search, Pencil, Trash2, RefreshCw, X, FileText, Receipt, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, showApiError } from '../lib/api';
 import { cargarCatalogos, buscarMunicipios, calcularDv } from '../lib/catalogos';
@@ -343,7 +344,7 @@ export function ProveedoresPage() {
         open={editing !== null}
         onClose={() => setEditing(null)}
         title={editing?.id ? 'Editar Proveedor' : 'Nuevo Proveedor'}
-        size="xl"
+        size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => setEditing(null)}>
@@ -361,45 +362,29 @@ export function ProveedoresPage() {
             <div className="grid grid-cols-2 gap-2">
               <SoporteCard
                 active={editing.tipo_soporte === 'fe_recibida'}
-                title="Factura Electrónica recibida"
-                desc="El proveedor emite su FE/POS y tú la registras en Facturas Recibidas."
+                title="Factura Electrónica"
+                desc="El proveedor emite su FE — solo lo identificas."
                 Icon={FileText}
                 onClick={() => setEditing({ ...editing, tipo_soporte: 'fe_recibida' })}
               />
               <SoporteCard
                 active={editing.tipo_soporte === 'documento_soporte'}
                 title="Documento Soporte"
-                desc="Tú emites DS DIAN a nombre del proveedor (no obligado a facturar)."
+                desc="Tú emites el DS DIAN — se piden datos mínimos DIAN."
                 Icon={Receipt}
                 onClick={() => setEditing({ ...editing, tipo_soporte: 'documento_soporte', no_obligado_facturar: true })}
               />
             </div>
 
-            {/* ---------- DATOS BÁSICOS ---------- */}
-            <Section title="Datos básicos">
+            {/* ---------- DATOS BÁSICOS (SIEMPRE VISIBLE) ---------- */}
+            <SectionOpen title="Datos básicos">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                <Field label="Nombre / Razón Social" required className="md:col-span-5">
+                <Field label="Nombre / Razón Social" required className="md:col-span-7">
                   <Input
                     value={editing.razon_social ?? ''}
                     onChange={(e) => setEditing({ ...editing, razon_social: e.target.value })}
                     autoFocus
                   />
-                </Field>
-                <Field label="NIT / CC" required className="md:col-span-3">
-                  <div className="flex gap-1">
-                    <Input
-                      value={editing.identificacion ?? ''}
-                      onChange={(e) => onCambiaIdentificacion(e.target.value.replace(/\D/g, ''))}
-                    />
-                    {editing.dv && (
-                      <div
-                        className="w-8 h-8 rounded-md bg-primary-50 text-primary-700 border border-primary-200 flex items-center justify-center font-bold text-xs"
-                        title="Dígito de verificación (calculado automáticamente)"
-                      >
-                        {editing.dv}
-                      </div>
-                    )}
-                  </div>
                 </Field>
                 <Field label="Tipo persona" required className="md:col-span-2">
                   <Select
@@ -410,7 +395,7 @@ export function ProveedoresPage() {
                     <option value="natural">Natural</option>
                   </Select>
                 </Field>
-                <Field label="Estado" className="md:col-span-2">
+                <Field label="Estado" className="md:col-span-3">
                   <Select
                     value={editing.activo ? 1 : 0}
                     onChange={(e) => setEditing({ ...editing, activo: e.target.value === '1' })}
@@ -419,12 +404,32 @@ export function ProveedoresPage() {
                     <option value={0}>Inactivo</option>
                   </Select>
                 </Field>
-                <Field label="Nombre comercial" className="md:col-span-6">
-                  <Input
-                    value={editing.nombre_comercial ?? ''}
-                    onChange={(e) => setEditing({ ...editing, nombre_comercial: e.target.value })}
-                    placeholder="Opcional"
-                  />
+                <Field label="Tipo documento" required={editing.tipo_soporte === 'documento_soporte'} className="md:col-span-3">
+                  <Select
+                    value={editing.tipo_documento_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, tipo_documento_id: e.target.value ? parseInt(e.target.value) : null })}
+                  >
+                    <option value="">—</option>
+                    {catalogos.tipos_documento.map(td => (
+                      <option key={td.id} value={td.id}>{td.codigo} — {td.nombre}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="NIT / CC" required className="md:col-span-6">
+                  <div className="flex gap-1">
+                    <Input
+                      value={editing.identificacion ?? ''}
+                      onChange={(e) => onCambiaIdentificacion(e.target.value.replace(/\D/g, ''))}
+                    />
+                    {editing.dv && (
+                      <div
+                        className="w-8 h-8 rounded-md bg-primary-50 text-primary-700 border border-primary-200 flex items-center justify-center font-bold text-xs shrink-0"
+                        title="Dígito de verificación (auto)"
+                      >
+                        {editing.dv}
+                      </div>
+                    )}
+                  </div>
                 </Field>
                 <Field label="Código interno" className="md:col-span-3">
                   <Input
@@ -433,41 +438,75 @@ export function ProveedoresPage() {
                     placeholder="Opcional"
                   />
                 </Field>
-                <Field label="Matrícula mercantil" className="md:col-span-3">
+              </div>
+            </SectionOpen>
+
+            {/* ---------- CONTACTO (SIEMPRE VISIBLE — email obligatorio para DS) ---------- */}
+            <SectionOpen title="Contacto y ubicación">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                <Field label="Email" className="md:col-span-6">
                   <Input
-                    value={editing.matricula_mercantil ?? ''}
-                    onChange={(e) => setEditing({ ...editing, matricula_mercantil: e.target.value })}
-                    placeholder="Opcional"
+                    type="email"
+                    value={editing.email ?? ''}
+                    onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                  />
+                </Field>
+                <Field label="Teléfono" className="md:col-span-3">
+                  <Input
+                    value={editing.telefono ?? ''}
+                    onChange={(e) => setEditing({ ...editing, telefono: e.target.value })}
+                  />
+                </Field>
+                <Field label="WhatsApp" className="md:col-span-3">
+                  <Input
+                    value={editing.whatsapp ?? ''}
+                    onChange={(e) => setEditing({ ...editing, whatsapp: e.target.value })}
+                  />
+                </Field>
+                <Field label="Departamento" required={editing.tipo_soporte === 'documento_soporte'} className="md:col-span-6">
+                  <Select
+                    value={editing.departamento_id ?? ''}
+                    onChange={(e) => onCambiaDepartamento(e.target.value ? parseInt(e.target.value) : null)}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {catalogos.departamentos.map(d => (
+                      <option key={d.id} value={d.id}>{d.nombre}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Municipio" required={editing.tipo_soporte === 'documento_soporte'} className="md:col-span-6">
+                  <Select
+                    value={editing.municipio_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, municipio_id: e.target.value ? parseInt(e.target.value) : null })}
+                    disabled={!editing.departamento_id || municipios.length === 0}
+                  >
+                    <option value="">
+                      {editing.departamento_id ? 'Seleccionar municipio…' : 'Primero departamento'}
+                    </option>
+                    {municipios.map(m => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Dirección" className="md:col-span-12">
+                  <Input
+                    value={editing.direccion ?? ''}
+                    onChange={(e) => setEditing({ ...editing, direccion: e.target.value })}
                   />
                 </Field>
               </div>
-            </Section>
+            </SectionOpen>
 
-            {/* ---------- DATOS FISCALES DIAN ---------- */}
-            <Section title="Datos fiscales (DIAN)">
+            {/* ---------- FISCAL AVANZADO (colapsable, cerrado por default) ----------
+                Estos campos NO son requeridos por el XML del Documento Soporte.
+                Solo aplican a proveedores jurídicos grandes o con régimen especial.
+                Un vendedor natural del régimen simple no los necesita. */}
+            <Collapsible
+              title="Datos fiscales avanzados"
+              subtitle="Régimen, responsabilidad y matrícula — solo si el proveedor lo requiere."
+              defaultOpen={false}
+            >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <Field label="Tipo documento">
-                  <Select
-                    value={editing.tipo_documento_id ?? ''}
-                    onChange={(e) => setEditing({ ...editing, tipo_documento_id: e.target.value ? parseInt(e.target.value) : null })}
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {catalogos.tipos_documento.map(td => (
-                      <option key={td.id} value={td.id}>{td.codigo} — {td.nombre}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Tipo responsabilidad">
-                  <Select
-                    value={editing.liability_id ?? ''}
-                    onChange={(e) => setEditing({ ...editing, liability_id: e.target.value ? parseInt(e.target.value) : null })}
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {catalogos.tipos_responsabilidad.map(t => (
-                      <option key={t.id} value={t.id}>{t.codigo} — {t.nombre}</option>
-                    ))}
-                  </Select>
-                </Field>
                 <Field label="Régimen tributario">
                   <Select
                     value={editing.regimen_id ?? ''}
@@ -479,32 +518,32 @@ export function ProveedoresPage() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="Departamento">
+                <Field label="Responsabilidad">
                   <Select
-                    value={editing.departamento_id ?? ''}
-                    onChange={(e) => onCambiaDepartamento(e.target.value ? parseInt(e.target.value) : null)}
+                    value={editing.liability_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, liability_id: e.target.value ? parseInt(e.target.value) : null })}
                   >
                     <option value="">— Seleccionar —</option>
-                    {catalogos.departamentos.map(d => (
-                      <option key={d.id} value={d.id}>{d.nombre}</option>
+                    {catalogos.tipos_responsabilidad.map(t => (
+                      <option key={t.id} value={t.id}>{t.codigo} — {t.nombre}</option>
                     ))}
                   </Select>
                 </Field>
-                <Field label="Municipio">
-                  <Select
-                    value={editing.municipio_id ?? ''}
-                    onChange={(e) => setEditing({ ...editing, municipio_id: e.target.value ? parseInt(e.target.value) : null })}
-                    disabled={!editing.departamento_id || municipios.length === 0}
-                  >
-                    <option value="">
-                      {editing.departamento_id ? 'Seleccionar municipio…' : 'Primero selecciona departamento'}
-                    </option>
-                    {municipios.map(m => (
-                      <option key={m.id} value={m.id}>{m.nombre}</option>
-                    ))}
-                  </Select>
+                <Field label="Matrícula mercantil">
+                  <Input
+                    value={editing.matricula_mercantil ?? ''}
+                    onChange={(e) => setEditing({ ...editing, matricula_mercantil: e.target.value })}
+                    placeholder="Opcional"
+                  />
                 </Field>
-                <Field label="No obligado a facturar" hint="Si es persona/empresa sin obligación DIAN">
+                <Field label="Nombre comercial" className="md:col-span-2">
+                  <Input
+                    value={editing.nombre_comercial ?? ''}
+                    onChange={(e) => setEditing({ ...editing, nombre_comercial: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </Field>
+                <Field label="No obligado a facturar">
                   <div className="h-8 flex items-center">
                     <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none">
                       <input
@@ -513,19 +552,20 @@ export function ProveedoresPage() {
                         onChange={(e) => setEditing({ ...editing, no_obligado_facturar: e.target.checked })}
                         className="w-4 h-4 accent-primary-600"
                       />
-                      <span className="text-gray-700">Marcar como no obligado</span>
+                      <span className="text-gray-700">Marcar</span>
                     </label>
                   </div>
                 </Field>
               </div>
-            </Section>
+            </Collapsible>
 
-            {/* ---------- RETENCIONES (aparece con más énfasis si es DS) ---------- */}
-            <Section
-              title={editing.tipo_soporte === 'documento_soporte' ? 'Retenciones aplicables al DS' : 'Retenciones aplicables'}
+            {/* ---------- RETENCIONES (auto-open cuando es DS) ---------- */}
+            <Collapsible
+              title={editing.tipo_soporte === 'documento_soporte' ? 'Retenciones al DS' : 'Retenciones'}
               subtitle={editing.tipo_soporte === 'documento_soporte'
-                ? 'Se calculan al momento de emitir el Documento Soporte y se descuentan del pago.'
+                ? 'Se descuentan del pago al emitir el Documento Soporte.'
                 : 'Opcionales — solo si eres agente de retención.'}
+              defaultOpen={editing.tipo_soporte === 'documento_soporte'}
             >
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Field label="Ret. Fuente %">
@@ -556,61 +596,14 @@ export function ProveedoresPage() {
                   <Input
                     value={editing.concepto_dian ?? ''}
                     onChange={(e) => setEditing({ ...editing, concepto_dian: e.target.value })}
-                    placeholder="Ej. Honorarios, Servicios"
+                    placeholder="Ej. Honorarios"
                   />
                 </Field>
               </div>
-            </Section>
+            </Collapsible>
 
-            {/* ---------- CONTACTO ---------- */}
-            <Section title="Contacto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <Field label="Email">
-                  <Input
-                    type="email"
-                    value={editing.email ?? ''}
-                    onChange={(e) => setEditing({ ...editing, email: e.target.value })}
-                  />
-                </Field>
-                <Field label="Teléfono">
-                  <Input
-                    value={editing.telefono ?? ''}
-                    onChange={(e) => setEditing({ ...editing, telefono: e.target.value })}
-                  />
-                </Field>
-                <Field label="WhatsApp">
-                  <Input
-                    value={editing.whatsapp ?? ''}
-                    onChange={(e) => setEditing({ ...editing, whatsapp: e.target.value })}
-                  />
-                </Field>
-                <Field label="Dirección" className="md:col-span-3">
-                  <Input
-                    value={editing.direccion ?? ''}
-                    onChange={(e) => setEditing({ ...editing, direccion: e.target.value })}
-                  />
-                </Field>
-                <Field label="Cupo de crédito">
-                  <Input
-                    type="number"
-                    value={Number(editing.cupo_credito ?? 0)}
-                    onChange={(e) => setEditing({ ...editing, cupo_credito: parseFloat(e.target.value) || 0 })}
-                    min={0}
-                  />
-                </Field>
-                <Field label="Días de plazo">
-                  <Input
-                    type="number"
-                    value={editing.dias_credito ?? 0}
-                    onChange={(e) => setEditing({ ...editing, dias_credito: parseInt(e.target.value) || 0 })}
-                    min={0}
-                  />
-                </Field>
-              </div>
-            </Section>
-
-            {/* ---------- CUENTA BANCARIA ---------- */}
-            <Section title="Cuenta bancaria" subtitle="Para transferencias / consignaciones.">
+            {/* ---------- CUENTA BANCARIA (colapsable) ---------- */}
+            <Collapsible title="Cuenta bancaria" subtitle="Para transferencias / consignaciones." defaultOpen={false}>
               <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                 <Field label="Banco" className="md:col-span-3">
                   <Input
@@ -636,13 +629,31 @@ export function ProveedoresPage() {
                   />
                 </Field>
               </div>
-            </Section>
+            </Collapsible>
 
-            {/* ---------- CONTACTOS DE NOTIFICACIÓN ---------- */}
-            <Section
-              title="Contactos de notificación"
-              subtitle="Estos correos reciben copia (Cc) al enviar el comprobante de pago o el DS emitido."
-            >
+            {/* ---------- CRÉDITO Y CONTACTOS (colapsable) ---------- */}
+            <Collapsible title="Crédito y contactos de notificación" defaultOpen={false}>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Field label="Cupo de crédito">
+                  <Input
+                    type="number"
+                    value={Number(editing.cupo_credito ?? 0)}
+                    onChange={(e) => setEditing({ ...editing, cupo_credito: parseFloat(e.target.value) || 0 })}
+                    min={0}
+                  />
+                </Field>
+                <Field label="Días de plazo">
+                  <Input
+                    type="number"
+                    value={editing.dias_credito ?? 0}
+                    onChange={(e) => setEditing({ ...editing, dias_credito: parseInt(e.target.value) || 0 })}
+                    min={0}
+                  />
+                </Field>
+              </div>
+              <div className="text-[10px] text-gray-500 mb-2 leading-tight">
+                Correos Cc al enviar comprobante de pago o DS emitido.
+              </div>
               {(editing.contactos ?? []).length === 0 ? (
                 <div className="text-xs text-gray-400 mb-2">Sin contactos agregados</div>
               ) : (
@@ -650,7 +661,7 @@ export function ProveedoresPage() {
                   {(editing.contactos ?? []).map((c, i) => (
                     <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-1.5 items-center bg-gray-50 rounded-md p-1.5">
                       <Select
-                        className="md:col-span-2"
+                        className="md:col-span-3"
                         value={c.tipo}
                         onChange={(e) => updateContacto(i, { tipo: e.target.value as ContactoNotificacion['tipo'] })}
                       >
@@ -659,29 +670,17 @@ export function ProveedoresPage() {
                         ))}
                       </Select>
                       <Input
-                        className="md:col-span-3"
-                        placeholder="Nombre y cargo"
-                        value={c.nombre ?? ''}
-                        onChange={(e) => updateContacto(i, { nombre: e.target.value })}
-                      />
-                      <Input
-                        className="md:col-span-3"
+                        className="md:col-span-4"
                         placeholder="correo@empresa.co"
                         type="email"
                         value={c.correo}
                         onChange={(e) => updateContacto(i, { correo: e.target.value })}
                       />
                       <Input
-                        className="md:col-span-2"
-                        placeholder="Teléfono"
-                        value={c.telefono ?? ''}
-                        onChange={(e) => updateContacto(i, { telefono: e.target.value })}
-                      />
-                      <Input
-                        className="md:col-span-1"
-                        placeholder="Nota"
-                        value={c.nota ?? ''}
-                        onChange={(e) => updateContacto(i, { nota: e.target.value })}
+                        className="md:col-span-4"
+                        placeholder="Nombre"
+                        value={c.nombre ?? ''}
+                        onChange={(e) => updateContacto(i, { nombre: e.target.value })}
                       />
                       <button
                         onClick={() => removeContacto(i)}
@@ -697,16 +696,18 @@ export function ProveedoresPage() {
               <Button variant="secondary" onClick={addContacto}>
                 <Plus size={14} /> Agregar contacto
               </Button>
-            </Section>
+            </Collapsible>
 
-            <Field label="Observaciones">
+            {/* ---------- OBSERVACIONES (colapsable) ---------- */}
+            <Collapsible title="Observaciones" defaultOpen={false}>
               <textarea
                 rows={2}
                 value={editing.observaciones ?? ''}
                 onChange={(e) => setEditing({ ...editing, observaciones: e.target.value })}
                 className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                placeholder="Notas internas sobre este proveedor…"
               />
-            </Field>
+            </Collapsible>
           </div>
         )}
         {editing && !catalogos && (
@@ -756,7 +757,8 @@ function SoporteCard({
   );
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+/* Sección siempre expandida — para bloques obligatorios (datos básicos, contacto). */
+function SectionOpen({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm">
       <div className="mb-2 flex items-center gap-1.5">
@@ -765,6 +767,45 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
       </div>
       {subtitle && <div className="text-[10px] text-gray-500 -mt-1 mb-2 ml-2.5 leading-tight">{subtitle}</div>}
       {children}
+    </div>
+  );
+}
+
+/* Sección colapsable — header clickeable con chevron. Los bloques opcionales
+   viven aquí, cerrados por default para no inflar el modal. */
+function Collapsible({
+  title, subtitle, defaultOpen = false, children,
+}: {
+  title: string; subtitle?: string; defaultOpen?: boolean; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full px-4 py-2.5 flex items-center gap-2 text-left hover:bg-gray-50 transition"
+      >
+        <div className="w-1 h-3.5 bg-primary-300 rounded-sm" />
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-bold text-primary-700 uppercase tracking-widest">{title}</div>
+          {subtitle && !open && (
+            <div className="text-[10px] text-gray-500 mt-0.5 leading-tight truncate">{subtitle}</div>
+          )}
+        </div>
+        <ChevronDown
+          size={16}
+          className={`text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="px-4 pb-3 pt-1">
+          {subtitle && (
+            <div className="text-[10px] text-gray-500 mb-2 leading-tight">{subtitle}</div>
+          )}
+          {children}
+        </div>
+      )}
     </div>
   );
 }

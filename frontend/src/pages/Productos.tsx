@@ -120,21 +120,24 @@ export function ProductosPage() {
       const params: Record<string, unknown> = { q: busqueda, per_page: 100 };
       if (tipoFiltro === 'servicios') params.es_servicio = 1;
       if (tipoFiltro === 'productos') params.es_servicio = 0;
-      const [prodRes, famRes] = await Promise.all([
-        api.get<{ data: Producto[] }>('/productos', { params }),
-        api.get<{ familias: Familia[] }>('/familias'),
-      ]);
-      setRows(prodRes.data.data);
-      setFamilias(famRes.data.familias);
+      const { data } = await api.get<{ data: Producto[] }>('/productos', { params });
+      setRows(data.data);
     } catch (e) {
       showApiError(e, 'Error cargando productos');
     } finally {
       setLoading(false);
     }
   }
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, []);
+
+  // Familias se cargan UNA sola vez al montar — no dependen del filtro
+  // de productos así que no tiene sentido re-pedirlas en cada búsqueda.
   useEffect(() => {
-    const t = setTimeout(() => cargar(), 300);
+    api.get<{ familias: Familia[] }>('/familias')
+      .then(({ data }) => setFamilias(data.familias))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    const t = setTimeout(() => cargar(), busqueda ? 300 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, tipoFiltro]);

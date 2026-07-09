@@ -102,9 +102,8 @@ export function ClientesPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, []);
   useEffect(() => {
-    const t = setTimeout(() => cargar(), 300);
+    const t = setTimeout(() => cargar(), busqueda ? 300 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda]);

@@ -124,9 +124,11 @@ export function ProveedoresPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { cargar(); /* eslint-disable-next-line */ }, []);
+  // Un solo useEffect que cubre mount + búsqueda en vivo. El debounce es 0
+  // en el mount (busqueda vacía) y 300ms cuando hay texto — así al entrar
+  // a la página se dispara UN solo request, no dos.
   useEffect(() => {
-    const t = setTimeout(() => cargar(), 300);
+    const t = setTimeout(() => cargar(), busqueda ? 300 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busqueda, tipoFiltro]);

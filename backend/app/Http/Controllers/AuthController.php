@@ -93,10 +93,23 @@ class AuthController extends Controller
             DB::connection('landlord')->table('empresa_config')->insert([
                 'empresa_id'          => $empresa->id,
                 'iva_incluido'        => 1,
+                'usa_fe'              => 0,   // arranca sin FE; se habilita cuando la empresa la tenga lista
                 'moneda'              => 'COP',
                 'iniciar_factura_en'  => 1,
                 'created_at'          => now(),
                 'updated_at'          => now(),
+            ]);
+
+            // 4b. Cliente CONSUMIDOR FINAL para ventas de mostrador (Remisión/POS).
+            //     222222222222 = adquirente no identificado / consumidor final (DIAN).
+            DB::connection('landlord')->table('clientes')->insert([
+                'empresa_id'     => $empresa->id,
+                'razon_social'   => 'CONSUMIDOR FINAL',
+                'identificacion' => '222222222222',
+                'tipo_persona'   => 'natural',
+                'activo'         => 1,
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ]);
 
             // 5. Auditoría del signup

@@ -12,6 +12,7 @@ import { ClientesPage } from './pages/Clientes';
 import { ProductosPage } from './pages/Productos';
 import { FamiliasPage } from './pages/Familias';
 import { ProveedoresPage } from './pages/Proveedores';
+import { VentasPage } from './pages/Ventas';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, loading } = useAuth();
@@ -44,6 +45,7 @@ function App() {
             <Route path="/proveedores" element={<ProveedoresPage />} />
             <Route path="/productos"   element={<ProductosPage />} />
             <Route path="/familias"    element={<FamiliasPage />} />
+            <Route path="/ventas"      element={<VentasPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -374,9 +374,30 @@ export function ProveedoresPage() {
                 title="Documento Soporte"
                 desc="Tú emites el DS DIAN — se piden datos mínimos DIAN."
                 Icon={Receipt}
-                onClick={() => setEditing({ ...editing, tipo_soporte: 'documento_soporte', no_obligado_facturar: true })}
+                onClick={() => {
+                  // DS = compra a NO obligado a facturar → normalmente persona
+                  // natural con Cédula (13). Solo se aplica el default si aún no
+                  // hay tipo de doc o si venía como NIT (31), sin pisar otra
+                  // elección explícita (pasaporte, etc.).
+                  const necesitaDefault = !editing.tipo_documento_id || editing.tipo_documento_id === 31;
+                  setEditing({
+                    ...editing,
+                    tipo_soporte: 'documento_soporte',
+                    no_obligado_facturar: true,
+                    ...(necesitaDefault ? { tipo_documento_id: 13, tipo_persona: 'natural' } : {}),
+                  });
+                }}
               />
             </div>
+
+            {/* Aviso contextual DS: el proveedor debe ser un no obligado a facturar */}
+            {editing.tipo_soporte === 'documento_soporte' && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+                El proveedor de un <b>documento soporte</b> debe ser un <b>no obligado a facturar</b>
+                {' '}(normalmente persona natural con <b>Cédula de ciudadanía</b>). La DIAN valida el
+                tipo de documento al emitir el DS; si el proveedor factura, regístralo como Factura Electrónica.
+              </p>
+            )}
 
             {/* ---------- DATOS BÁSICOS (SIEMPRE VISIBLE) ---------- */}
             <SectionOpen title="Datos básicos">

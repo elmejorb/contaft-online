@@ -19,7 +19,7 @@ class EmpresaConfig extends Model
 
     protected $fillable = [
         'empresa_id',
-        'iva_incluido', 'resolucion_fe', 'resolucion_fecha', 'prefijo_fe',
+        'iva_incluido', 'usa_fe', 'resolucion_fe', 'resolucion_fecha', 'prefijo_fe',
         'rango_desde', 'rango_hasta', 'iniciar_factura_en', 'moneda',
         'agente_retenedor', 'autorizar_devoluciones', 'autorizar_anulaciones',
         'permitir_facturar_negativo', 'usar_familias', 'usar_lotes',
@@ -32,6 +32,7 @@ class EmpresaConfig extends Model
 
     protected $casts = [
         'iva_incluido'               => 'boolean',
+        'usa_fe'                     => 'boolean',
         'agente_retenedor'           => 'boolean',
         'autorizar_devoluciones'     => 'boolean',
         'autorizar_anulaciones'      => 'boolean',

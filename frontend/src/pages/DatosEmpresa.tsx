@@ -16,6 +16,7 @@ interface Config {
   id?: number;
   empresa_id: number;
   iva_incluido: boolean;
+  usa_fe: boolean;
   resolucion_fe: string | null;
   resolucion_fecha: string | null;
   prefijo_fe: string | null;
@@ -120,33 +121,13 @@ export function DatosEmpresaPage() {
         </div>
       </Card>
 
-      {/* === Configuración fiscal / operativa === */}
+      {/* === Documentos y facturación === */}
       <Card className="p-5 mb-4">
-        <SectionTitle icon={FileText} label="Facturación electrónica" />
+        <SectionTitle icon={FileText} label="Documentos y facturación" />
+
+        {/* Consecutivo interno — aplica a la Remisión (y a la FE si está activa) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Resolución DIAN" hint="Número de resolución de habilitación">
-            <Input
-              value={config.resolucion_fe ?? ''}
-              onChange={(e) => set('resolucion_fe', e.target.value)}
-              placeholder="18760000001"
-            />
-          </Field>
-          <Field label="Fecha de resolución">
-            <Input
-              type="date"
-              value={config.resolucion_fecha ?? ''}
-              onChange={(e) => set('resolucion_fecha', e.target.value)}
-            />
-          </Field>
-          <Field label="Prefijo (ej. FCON)">
-            <Input
-              value={config.prefijo_fe ?? ''}
-              onChange={(e) => set('prefijo_fe', e.target.value.toUpperCase())}
-              maxLength={4}
-              placeholder="FCON"
-            />
-          </Field>
-          <Field label="Iniciar consecutivo en">
+          <Field label="Iniciar consecutivo en" hint="Número inicial de la Remisión / documento interno">
             <Input
               type="number"
               value={config.iniciar_factura_en}
@@ -154,22 +135,73 @@ export function DatosEmpresaPage() {
               min={1}
             />
           </Field>
-          <Field label="Rango desde">
-            <Input
-              type="number"
-              value={config.rango_desde ?? ''}
-              onChange={(e) => set('rango_desde', parseInt(e.target.value) || null)}
-              min={0}
+        </div>
+
+        {/* Interruptor maestro de Facturación Electrónica */}
+        <div className="border-t mt-5 pt-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-800">Facturación electrónica DIAN</div>
+              <div className="text-xs text-gray-500 mt-0.5 max-w-lg">
+                Actívala solo si esta empresa emite factura electrónica. Si está apagada, la empresa
+                solo emite <b>Remisiones</b> (documento interno con consecutivo, sin DIAN) — ideal para
+                régimen simple. En Ventas la opción "Factura Electrónica" solo aparece con esto activo.
+              </div>
+            </div>
+            <Toggle
+              checked={config.usa_fe}
+              onChange={(v) => set('usa_fe', v)}
+              label={config.usa_fe ? 'Activada' : 'Desactivada'}
             />
-          </Field>
-          <Field label="Rango hasta">
-            <Input
-              type="number"
-              value={config.rango_hasta ?? ''}
-              onChange={(e) => set('rango_hasta', parseInt(e.target.value) || null)}
-              min={0}
-            />
-          </Field>
+          </div>
+
+          {config.usa_fe ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <Field label="Resolución DIAN" hint="Número de resolución de habilitación">
+                <Input
+                  value={config.resolucion_fe ?? ''}
+                  onChange={(e) => set('resolucion_fe', e.target.value)}
+                  placeholder="18760000001"
+                />
+              </Field>
+              <Field label="Fecha de resolución">
+                <Input
+                  type="date"
+                  value={config.resolucion_fecha ?? ''}
+                  onChange={(e) => set('resolucion_fecha', e.target.value)}
+                />
+              </Field>
+              <Field label="Prefijo (ej. FCON)">
+                <Input
+                  value={config.prefijo_fe ?? ''}
+                  onChange={(e) => set('prefijo_fe', e.target.value.toUpperCase())}
+                  maxLength={4}
+                  placeholder="FCON"
+                />
+              </Field>
+              <div />
+              <Field label="Rango desde">
+                <Input
+                  type="number"
+                  value={config.rango_desde ?? ''}
+                  onChange={(e) => set('rango_desde', parseInt(e.target.value) || null)}
+                  min={0}
+                />
+              </Field>
+              <Field label="Rango hasta">
+                <Input
+                  type="number"
+                  value={config.rango_hasta ?? ''}
+                  onChange={(e) => set('rango_hasta', parseInt(e.target.value) || null)}
+                  min={0}
+                />
+              </Field>
+            </div>
+          ) : (
+            <div className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              Esta empresa <b>solo emite Remisiones</b>. Actívala cuando tenga la resolución DIAN lista.
+            </div>
+          )}
         </div>
 
         <div className="border-t mt-5 pt-4">

@@ -34,10 +34,12 @@ interface Producto {
   existencia_minima: string | number;
   ubicacion: string | null;
   proveedor_id: number | null;
+  unidad_medida_id: number | null;
   activo: boolean;
 }
 
 interface Familia { id: number; nombre: string }
+interface Unidad { id: number; codigo: string; nombre: string }
 
 /* Etiquetas hardcodeadas por ahora — cuando se implemente CRUD de etiquetas
    se cambia por endpoint. Se guardan como string en productos.etiqueta.
@@ -69,6 +71,7 @@ function toForm(p: Producto | null): ProductoForm {
     Estado: p.activo ? 1 : 0,
     Servicio: p.es_servicio ? 1 : 0,
     Id_Etiqueta: ETIQUETAS.find((et) => et.nombre === p.etiqueta)?.id ?? 0,
+    Id_Unidad_Medida: p.unidad_medida_id ?? 70,   // 70 = "Unidad" (código DIAN 94)
   };
 }
 
@@ -78,6 +81,7 @@ function formVacio(): ProductoForm {
     Precio_Costo: 0, Precio_Venta: 0, Precio_Venta2: 0, Precio_Venta3: 0,
     Precio_Minimo: 0, Iva: 19, Existencia: 0, Existencia_minima: 0,
     Id_Categoria: 0, CodigoPro: 0, Estante: '', Estado: 1, Servicio: 0, Id_Etiqueta: 0,
+    Id_Unidad_Medida: 70,
   };
 }
 
@@ -88,6 +92,7 @@ function toApi(f: ProductoForm) {
     familia_id: f.Id_Categoria || null,
     proveedor_id: f.CodigoPro || null,
     etiqueta: ETIQUETAS.find((et) => et.id === f.Id_Etiqueta)?.nombre ?? null,
+    unidad_medida_id: f.Id_Unidad_Medida || null,
     es_servicio: f.Servicio === 1,
     precio_costo: f.Precio_Costo,
     precio_venta_1: f.Precio_Venta,
@@ -108,6 +113,8 @@ const fmt = (v: number | string | null | undefined) =>
 export function ProductosPage() {
   const [rows, setRows] = useState<Producto[]>([]);
   const [familias, setFamilias] = useState<Familia[]>([]);
+  const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([]);
+  const [unidades, setUnidades] = useState<Unidad[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'productos' | 'servicios'>('todos');
@@ -129,11 +136,23 @@ export function ProductosPage() {
     }
   }
 
-  // Familias se cargan UNA sola vez al montar — no dependen del filtro
-  // de productos así que no tiene sentido re-pedirlas en cada búsqueda.
+  // Familias y proveedores se cargan UNA sola vez al montar — no dependen del
+  // filtro de productos así que no tiene sentido re-pedirlos en cada búsqueda.
   useEffect(() => {
     api.get<{ familias: Familia[] }>('/familias')
       .then(({ data }) => setFamilias(data.familias))
+      .catch(() => {});
+    // Se traen los DOS tipos de proveedor (fe_recibida y documento_soporte):
+    // el proveedor de un producto puede ser cualquiera de ellos, así que NO
+    // se filtra por tipo_soporte. El endpoint pagina → usamos data.data.
+    api.get<{ data: { id: number; razon_social: string }[] }>('/proveedores', {
+      params: { per_page: 100, activo: 1 },
+    })
+      .then(({ data }) => setProveedores(data.data.map((p) => ({ id: p.id, nombre: p.razon_social }))))
+      .catch(() => {});
+    // Unidades de medida DIAN (necesarias para FE). Se cachean en el estado.
+    api.get<{ unidades: Unidad[] }>('/catalogos/unidades')
+      .then(({ data }) => setUnidades(data.unidades))
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -307,7 +326,8 @@ export function ProductosPage() {
           onSave={guardar}
           saving={saving}
           categorias={familias.map((f) => ({ id: f.id, nombre: f.nombre }))}
-          proveedores={[]}
+          proveedores={proveedores}
+          unidades={unidades}
           etiquetas={ETIQUETAS}
           esNuevo={editing.esNuevo}
         />

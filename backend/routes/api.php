@@ -7,6 +7,8 @@ use App\Http\Controllers\Tenant\EmpresaConfigController;
 use App\Http\Controllers\Tenant\FamiliaController;
 use App\Http\Controllers\Tenant\ProductoController;
 use App\Http\Controllers\Tenant\ProveedorController;
+use App\Http\Controllers\Tenant\VentaCatalogoController;
+use App\Http\Controllers\Tenant\VentaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +28,7 @@ Route::get('/ping', fn () => response()->json([
 // ============================================================
 Route::get('/catalogos',            [CatalogoController::class, 'index']);
 Route::get('/catalogos/municipios', [CatalogoController::class, 'municipios']);
+Route::get('/catalogos/unidades',   [CatalogoController::class, 'unidades']);
 
 // ============================================================
 // LANDLORD — signup + login públicos, resto requiere token
@@ -73,5 +76,16 @@ Route::middleware(['auth:sanctum', 'resolve.tenant'])->group(function () {
     Route::apiResource('familias',    FamiliaController::class)->except(['show']);
     Route::apiResource('proveedores', ProveedorController::class);
 
-    // Próximamente: /ventas, /pagos, /kardex, /facturas-recibidas, ...
+    // === Ventas / POS ===
+    // Sin update: una venta emitida no se edita — se anula y se re-crea.
+    Route::get('/ventas',            [VentaController::class, 'index']);
+    Route::get('/ventas/{id}',       [VentaController::class, 'show'])->whereNumber('id');
+    Route::post('/ventas',           [VentaController::class, 'store']);
+    Route::post('/ventas/{id}/anular', [VentaController::class, 'anular'])->whereNumber('id');
+
+    // Catálogos del POS
+    Route::get('/vendedores',  [VentaCatalogoController::class, 'vendedores']);
+    Route::get('/medios-pago', [VentaCatalogoController::class, 'mediosPago']);
+
+    // Próximamente: /pagos (cartera), /kardex, /facturas-recibidas, ...
 });

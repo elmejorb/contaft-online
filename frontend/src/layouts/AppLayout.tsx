@@ -47,7 +47,7 @@ const MENU: MenuGroup[] = [
   {
     label: 'Ventas',
     items: [
-      { to: '/ventas',   label: 'Nueva Venta',   icon: ShoppingCart, disabled: true },
+      { to: '/ventas',   label: 'Nueva Venta',   icon: ShoppingCart },
       { to: '/facturas', label: 'Listado Ventas', icon: FileText,     disabled: true },
       { to: '/cartera',  label: 'Cartera',        icon: Wallet,       disabled: true },
     ],
@@ -67,7 +67,24 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  if (!empresaActiva) return null;
+  // Sesión sin empresa activa (p.ej. token viejo de una empresa eliminada):
+  // en vez de dejar la pantalla en blanco, mostramos una salida clara.
+  if (!empresaActiva) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="text-lg font-semibold text-gray-800 mb-1">No hay una empresa activa</div>
+        <div className="text-sm text-gray-500 mb-4 max-w-sm">
+          Tu sesión no tiene una empresa asociada. Cierra sesión y vuelve a entrar.
+        </div>
+        <button
+          onClick={logout}
+          className="h-9 px-4 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold"
+        >
+          Ir a iniciar sesión
+        </button>
+      </div>
+    );
+  }
 
   const trialDaysLeft = empresaActiva.trial_hasta
     ? Math.ceil((new Date(empresaActiva.trial_hasta).getTime() - Date.now()) / 86400000)

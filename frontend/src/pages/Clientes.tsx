@@ -438,47 +438,38 @@ export function ClientesPage() {
                     ))}
                   </Select>
                 </Field>
-                {editing.tipo_persona === 'juridica' && (
-                  <Field label="Matrícula mercantil" className="md:col-span-3">
-                    <Input
-                      value={editing.matricula_mercantil ?? ''}
-                      onChange={(e) => setEditing({ ...editing, matricula_mercantil: e.target.value })}
-                      placeholder="Opcional"
-                    />
-                  </Field>
-                )}
               </div>
             </Section>
 
             {/* ---------- CONTACTO ---------- */}
             <Section title="Contacto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <Field label="Email">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                <Field label="Email" className="md:col-span-4">
                   <Input
                     type="email"
                     value={editing.email ?? ''}
                     onChange={(e) => setEditing({ ...editing, email: e.target.value })}
                   />
                 </Field>
-                <Field label="Teléfono">
+                <Field label="Teléfono" className="md:col-span-4">
                   <Input
                     value={editing.telefono ?? ''}
                     onChange={(e) => setEditing({ ...editing, telefono: e.target.value })}
                   />
                 </Field>
-                <Field label="WhatsApp">
+                <Field label="WhatsApp" className="md:col-span-4">
                   <Input
                     value={editing.whatsapp ?? ''}
                     onChange={(e) => setEditing({ ...editing, whatsapp: e.target.value })}
                   />
                 </Field>
-                <Field label="Dirección" className="md:col-span-3">
+                <Field label="Dirección" className="md:col-span-8">
                   <Input
                     value={editing.direccion ?? ''}
                     onChange={(e) => setEditing({ ...editing, direccion: e.target.value })}
                   />
                 </Field>
-                <Field label="Cupo de crédito">
+                <Field label="Cupo de crédito" className="md:col-span-2">
                   <Input
                     type="number"
                     value={editing.cupo_credito ?? 0}
@@ -486,7 +477,7 @@ export function ClientesPage() {
                     min={0}
                   />
                 </Field>
-                <Field label="Días de plazo">
+                <Field label="Días de plazo" className="md:col-span-2">
                   <Input
                     type="number"
                     value={editing.dias_credito ?? 0}

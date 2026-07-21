@@ -289,7 +289,10 @@ CREATE TABLE IF NOT EXISTS ventas (
     contingencia_motivo   VARCHAR(255) NULL,
     created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_empresa_numero (empresa_id, numero),
+    -- Consecutivo POR tipo de documento: POS, cotización, electrónica y soporte
+    -- llevan cada uno su propia secuencia (igual que el desktop, donde vivían en
+    -- tablas separadas: tblventas, tblcotizaciones, electronic_documents).
+    UNIQUE KEY uq_empresa_tipo_numero (empresa_id, tipo_documento, numero),
     UNIQUE KEY uq_cufe (cufe),
     KEY idx_empresa_fecha (empresa_id, fecha),
     KEY idx_empresa_cliente (empresa_id, cliente_id),

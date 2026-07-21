@@ -80,7 +80,7 @@ class ProductoController extends Controller
             'nombre'             => 'required|string|max:200',
             'descripcion'        => 'nullable|string',
             'familia_id'         => 'nullable|integer',
-            'unidad_medida_id'   => 'nullable|integer',
+            'unidad_medida_id'   => 'nullable|integer|exists:landlord.dian_unidades_medida,id',
             'es_servicio'        => 'sometimes|boolean',
             'tiene_componentes'  => 'sometimes|boolean',
             'tiene_lotes'        => 'sometimes|boolean',

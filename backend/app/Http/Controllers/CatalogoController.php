@@ -54,4 +54,25 @@ class CatalogoController extends Controller
         }
         return response()->json(['municipios' => $q->orderBy('nombre')->limit(200)->get()]);
     }
+
+    /**
+     * Unidades de medida DIAN (~1093). Requeridas para facturación
+     * electrónica (unitCode en cada línea). Los IDs coinciden con la tabla
+     * unit_measures de api-electronica. La unidad estándar es id 70 (código 94).
+     * Se devuelven todas (el front las cachea por sesión).
+     */
+    public function unidades(): JsonResponse
+    {
+        return response()->json([
+            'unidades' => DB::connection('landlord')
+                ->table('dian_unidades_medida')
+                ->select('id', 'codigo', 'nombre', 'comun')
+                // Las de uso común (Unidad, Kilogramo, Litro…) primero y por su
+                // orden curado; el resto del catálogo DIAN después, alfabético.
+                ->orderByDesc('comun')
+                ->orderBy('orden')
+                ->orderBy('nombre')
+                ->get(),
+        ]);
+    }
 }

@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Save, X, Layers } from 'lucide-react';
 import { Button, Field, Modal } from '../components/ui';
 
@@ -32,11 +33,13 @@ export interface ProductoForm {
   Estado: 0 | 1;
   Servicio: 0 | 1;
   Id_Etiqueta: number;
+  Id_Unidad_Medida: number;   // unidad DIAN (requerida para FE). Default 70 = "Unidad" (código 94)
 }
 
 interface CatOpt { id: number; nombre: string }
 interface ProvOpt { id: number; nombre: string }
 interface EtiquetaOpt { id: number; nombre: string; color?: string }
+interface UnidadOpt { id: number; codigo: string; nombre: string }
 
 interface Props {
   isOpen: boolean;
@@ -48,6 +51,7 @@ interface Props {
   categorias: CatOpt[];
   proveedores: ProvOpt[];
   etiquetas: EtiquetaOpt[];
+  unidades: UnidadOpt[];
   esNuevo: boolean;
   onOpenComponentes?: () => void;
 }
@@ -77,7 +81,7 @@ function soloNumeros(e: React.KeyboardEvent<HTMLInputElement>) {
 
 export function ProductoModal({
   isOpen, onClose, form, onChange, onSave, saving,
-  categorias, proveedores, etiquetas, esNuevo, onOpenComponentes,
+  categorias, proveedores, etiquetas, unidades, esNuevo, onOpenComponentes,
 }: Props) {
   const set = <K extends keyof ProductoForm>(f: K, v: ProductoForm[K]) =>
     onChange({ ...form, [f]: v });
@@ -186,6 +190,13 @@ export function ProductoModal({
               </BaseSelect>
             </Field>
           </div>
+          <Field label="Unidad de medida (DIAN)" className="mt-2">
+            <UnidadSelect
+              unidades={unidades}
+              value={form.Id_Unidad_Medida}
+              onChange={(id) => set('Id_Unidad_Medida', id)}
+            />
+          </Field>
         </Fieldset>
 
         {/* Existencias + Ubicación — solo productos físicos */}
@@ -463,5 +474,57 @@ function BaseInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 function BaseSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={inputCls('pr-5 ' + (props.className ?? ''))} />;
+}
+
+/**
+ * Selector FILTRABLE de unidad de medida DIAN (~1093 opciones). Se busca por
+ * código o nombre; muestra hasta 50 coincidencias. Usa onMouseDown para
+ * seleccionar antes de que el onBlur cierre la lista.
+ */
+function UnidadSelect({ unidades, value, onChange }: {
+  unidades: { id: number; codigo: string; nombre: string }[];
+  value: number;
+  onChange: (id: number) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const sel = unidades.find((u) => u.id === value);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    const base = term
+      ? unidades.filter((u) =>
+          u.codigo.toLowerCase().includes(term) || u.nombre.toLowerCase().includes(term))
+      : unidades;
+    return base.slice(0, 50);
+  }, [q, unidades]);
+
+  return (
+    <div className="relative">
+      <input
+        className={inputCls('uppercase')}
+        value={open ? q : (sel ? `${sel.codigo} · ${sel.nombre}` : '')}
+        placeholder={unidades.length === 0 ? 'Cargando…' : 'Buscar unidad por código o nombre…'}
+        disabled={unidades.length === 0}
+        onFocus={() => { setOpen(true); setQ(''); }}
+        onChange={(e) => setQ(e.target.value)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        title="Unidad reportada a la DIAN en la factura electrónica (unitCode)"
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg text-xs">
+          {filtered.map((u) => (
+            <li
+              key={u.id}
+              onMouseDown={() => { onChange(u.id); setQ(''); setOpen(false); }}
+              className={`cursor-pointer px-2 py-1 uppercase hover:bg-primary-50 ${u.id === value ? 'bg-primary-50 font-medium' : ''}`}
+            >
+              <span className="text-gray-400">{u.codigo}</span> · {u.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 

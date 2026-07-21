@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
+    "ag-grid-community": "^36.0.1",
+    "ag-grid-react": "^36.0.1",
     "axios": "^1.18.1",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",

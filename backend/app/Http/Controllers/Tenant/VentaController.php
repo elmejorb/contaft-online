@@ -32,23 +32,50 @@ class VentaController extends Controller
     /**
      * GET /api/ventas?q=&cliente_id=&tipo_documento=&tipo_termino=&estado=&desde=&hasta=&per_page=
      */
+    /**
+     * GET /api/ventas — listado para la pantalla de gestión (AG Grid).
+     * Filtros: anio, mes (0=todos), dia (0=todos), estado (valida|anulada|todas),
+     * tipo_documento, buscar (número/cliente/identificación).
+     * Devuelve cada venta con conteo de ítems, saldo (cartera) y medio de pago,
+     * más la lista de años disponibles para el selector.
+     */
     public function index(Request $request): JsonResponse
     {
-        $q = Venta::query()->with(['cliente:id,razon_social,identificacion']);
+        $conn   = DB::connection('landlord');
+        $anio   = (int) $request->query('anio', now()->year);
+        $mes    = (int) $request->query('mes', 0);
+        $dia    = (int) $request->query('dia', 0);
+        $estado = (string) $request->query('estado', 'valida');
+        $busq   = trim((string) ($request->query('buscar') ?? $request->query('q') ?? ''));
 
-        if ($busq = trim((string) $request->query('q', ''))) {
-            $q->where('numero', 'LIKE', "%{$busq}%")
-              ->orWhereHas('cliente', fn($w) => $w->where('razon_social', 'LIKE', "%{$busq}%"));
-        }
-        if ($request->filled('cliente_id'))     $q->where('cliente_id', $request->integer('cliente_id'));
+        $q = Venta::query()
+            ->select('ventas.*')
+            ->with('cliente:id,razon_social,identificacion')
+            ->withCount('lineas')
+            ->addSelect(['medio_pago_nombre' => $conn->table('medios_pago')
+                ->select('nombre')->whereColumn('medios_pago.id', 'ventas.medio_pago_id')])
+            ->addSelect(['saldo' => $conn->table('vw_facturas_saldo')
+                ->select('saldo')->whereColumn('vw_facturas_saldo.venta_id', 'ventas.id')])
+            ->whereYear('fecha', $anio);
+
+        if ($mes > 0) $q->whereMonth('fecha', $mes);
+        if ($dia > 0) $q->whereDay('fecha', $dia);
+        if ($estado !== 'todas') $q->where('estado', $estado);
         if ($request->filled('tipo_documento')) $q->where('tipo_documento', $request->query('tipo_documento'));
-        if ($request->filled('tipo_termino'))   $q->where('tipo_termino', $request->query('tipo_termino'));
-        if ($request->filled('estado'))         $q->where('estado', $request->query('estado'));
-        if ($request->filled('desde'))          $q->whereDate('fecha', '>=', $request->query('desde'));
-        if ($request->filled('hasta'))          $q->whereDate('fecha', '<=', $request->query('hasta'));
+        if ($busq !== '') {
+            $q->where(function ($w) use ($busq) {
+                $w->where('numero', 'LIKE', "%{$busq}%")
+                  ->orWhereHas('cliente', fn($c) => $c->where('razon_social', 'LIKE', "%{$busq}%")
+                                                       ->orWhere('identificacion', 'LIKE', "%{$busq}%"));
+            });
+        }
 
-        $perPage = min((int) $request->query('per_page', 25), 100);
-        return response()->json($q->orderByDesc('fecha')->orderByDesc('id')->paginate($perPage));
+        $ventas = $q->orderByDesc('fecha')->orderByDesc('id')->limit(2000)->get();
+
+        $anios = Venta::query()->selectRaw('DISTINCT YEAR(fecha) as y')->orderByDesc('y')->pluck('y');
+        if ($anios->isEmpty()) $anios = collect([now()->year]);
+
+        return response()->json(['ventas' => $ventas, 'anios' => $anios]);
     }
 
     public function show(int $id): JsonResponse

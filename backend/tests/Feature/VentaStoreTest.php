@@ -253,6 +253,6 @@ class VentaStoreTest extends TestCase
             ->getJson('/api/ventas');
 
         $resp->assertOk();
-        $this->assertSame(0, (int) $resp->json('total'));   // B no ve las ventas de A
+        $this->assertCount(0, $resp->json('ventas'));   // B no ve las ventas de A
     }
 }

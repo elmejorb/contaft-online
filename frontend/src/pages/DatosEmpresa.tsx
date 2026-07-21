@@ -17,6 +17,7 @@ interface Config {
   empresa_id: number;
   iva_incluido: boolean;
   usa_fe: boolean;
+  usa_caja: boolean;
   resolucion_fe: string | null;
   resolucion_fecha: string | null;
   prefijo_fe: string | null;
@@ -246,6 +247,11 @@ export function DatosEmpresaPage() {
               checked={config.imprimir_cotizacion}
               onChange={(v) => set('imprimir_cotizacion', v)}
               label="Imprimir cotización al guardar"
+            />
+            <Toggle
+              checked={config.usa_caja}
+              onChange={(v) => set('usa_caja', v)}
+              label="Usar caja (obligatoria para vender contado)"
             />
           </div>
         </div>

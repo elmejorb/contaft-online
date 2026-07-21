@@ -7,6 +7,7 @@ use App\Http\Controllers\Tenant\EmpresaConfigController;
 use App\Http\Controllers\Tenant\FamiliaController;
 use App\Http\Controllers\Tenant\ProductoController;
 use App\Http\Controllers\Tenant\ProveedorController;
+use App\Http\Controllers\Tenant\CajaController;
 use App\Http\Controllers\Tenant\VentaCatalogoController;
 use App\Http\Controllers\Tenant\VentaController;
 use Illuminate\Http\Request;
@@ -86,6 +87,12 @@ Route::middleware(['auth:sanctum', 'resolve.tenant'])->group(function () {
     // Catálogos del POS
     Route::get('/vendedores',  [VentaCatalogoController::class, 'vendedores']);
     Route::get('/medios-pago', [VentaCatalogoController::class, 'mediosPago']);
+
+    // === Cajas (CRUD registradoras) ===
+    Route::get('/cajas',         [CajaController::class, 'index']);
+    Route::post('/cajas',        [CajaController::class, 'store']);
+    Route::put('/cajas/{id}',    [CajaController::class, 'update'])->whereNumber('id');
+    Route::delete('/cajas/{id}', [CajaController::class, 'destroy'])->whereNumber('id');
 
     // Próximamente: /pagos (cartera), /kardex, /facturas-recibidas, ...
 });

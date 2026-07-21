@@ -34,6 +34,7 @@ class EmpresaConfigController extends Controller
         $data = $request->validate([
             'iva_incluido'                    => 'sometimes|boolean',
             'usa_fe'                          => 'sometimes|boolean',
+            'usa_caja'                        => 'sometimes|boolean',
             'resolucion_fe'                   => 'sometimes|nullable|string|max:30',
             'resolucion_fecha'                => 'sometimes|nullable|date',
             'prefijo_fe'                      => 'sometimes|nullable|string|max:4',

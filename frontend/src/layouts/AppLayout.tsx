@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Package, Boxes, Percent, FileText, ShoppingCart,
-  Wallet, Settings, Building2, User, LogOut, ChevronDown, Menu, X, Truck,
+  Wallet, Settings, Building2, User, LogOut, ChevronDown, Menu, X, Truck, Calculator,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -56,6 +56,7 @@ const MENU: MenuGroup[] = [
     label: 'Configuración',
     items: [
       { to: '/empresa',   label: 'Datos Empresa', icon: Building2 },
+      { to: '/cajas',     label: 'Cajas',         icon: Calculator },
       { to: '/config',    label: 'Ajustes',       icon: Settings, disabled: true },
     ],
   },

@@ -38,6 +38,12 @@ interface VentaDetalle extends VentaRow {
 const TIPO_LABEL: Record<string, string> = {
   remision: 'Remisión', electronica: 'F. Electrónica', soporte: 'Doc. Soporte', cotizacion: 'Cotización',
 };
+const DOC_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  remision:    { label: 'Remisión',       bg: '#f3f4f6', color: '#374151' },
+  electronica: { label: 'F. Electrónica', bg: '#dbeafe', color: '#2563eb' },
+  soporte:     { label: 'Doc. Soporte',   bg: '#fef3c7', color: '#92400e' },
+  cotizacion:  { label: 'Cotización',     bg: '#ede9fe', color: '#7c3aed' },
+};
 const MESES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 const num = (v: string | number | null | undefined) => Number(v ?? 0) || 0;
 const fmtMon = (v: string | number | null | undefined) => '$ ' + Math.round(num(v)).toLocaleString('es-CO');
@@ -54,6 +60,7 @@ export function VentasListadoPage() {
   const [mes, setMes] = useState(hoy.getMonth() + 1);
   const [dia, setDia] = useState(0);
   const [estado, setEstado] = useState('valida');
+  const [filtroDoc, setFiltroDoc] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'contado' | 'credito'>('todos');
   const [busqueda, setBusqueda] = useState('');
   const [detalle, setDetalle] = useState<VentaDetalle | null>(null);
@@ -80,6 +87,7 @@ export function VentasListadoPage() {
   useEffect(() => { if (mes === 0 && dia !== 0) setDia(0); }, [mes, dia]);
 
   const filtrados = useMemo(() => ventas.filter((v) => {
+    if (filtroDoc && v.tipo_documento !== filtroDoc) return false;
     if (filtroTipo === 'contado' && v.tipo_termino !== 'contado') return false;
     if (filtroTipo === 'credito' && v.tipo_termino !== 'credito') return false;
     if (busqueda) {
@@ -92,7 +100,9 @@ export function VentasListadoPage() {
     return true;
   }), [ventas, filtroTipo, busqueda]);
 
+  // Las cotizaciones NO son ventas → se excluyen de los montos y del conteo.
   const stats = useMemo(() => filtrados.reduce((a, v) => {
+    if (v.tipo_documento === 'cotizacion') return a;
     a.cantidad += 1; a.monto += num(v.total);
     if (v.tipo_termino === 'contado') a.contado += num(v.total); else a.credito += num(v.total);
     return a;
@@ -150,8 +160,12 @@ export function VentasListadoPage() {
       cellRenderer: (p: any) => <span style={{ color: '#7c3aed', fontWeight: 600 }}>{p.value}</span> },
     { headerName: 'Fecha', field: 'fecha', width: 110, sortable: true, cellRenderer: (p: any) => fechaCorta(p.value) },
     { headerName: 'Hora', field: 'fecha', colId: 'hora', width: 95, cellRenderer: (p: any) => fmtHora(p.value) },
-    { headerName: 'Cliente', valueGetter: (p) => p.data?.cliente?.razon_social ?? '—', flex: 1, minWidth: 180, sortable: true, filter: true },
-    { headerName: 'Tipo', field: 'tipo_termino', width: 105, cellRenderer: (p: any) => {
+    { headerName: 'Cliente', valueGetter: (p) => p.data?.cliente?.razon_social ?? '—', flex: 1, minWidth: 160, sortable: true, filter: true },
+    { headerName: 'Documento', field: 'tipo_documento', width: 130, sortable: true, cellRenderer: (p: any) => {
+        const b = DOC_BADGE[p.value] ?? { label: p.value, bg: '#f3f4f6', color: '#374151' };
+        return <span style={{ padding: '1px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: b.bg, color: b.color }}>{b.label}</span>;
+      } },
+    { headerName: 'Término', field: 'tipo_termino', width: 95, cellRenderer: (p: any) => {
         const cred = p.value === 'credito';
         return <span style={{ padding: '1px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: cred ? '#dbeafe' : '#f3f4f6', color: cred ? '#2563eb' : '#6b7280' }}>{cred ? 'Crédito' : 'Contado'}</span>;
       } },
@@ -228,6 +242,13 @@ export function VentasListadoPage() {
           <option value="anulada">Anuladas</option>
           <option value="todas">Todas</option>
         </select>
+        <select value={filtroDoc} onChange={(e) => setFiltroDoc(e.target.value)} style={inputCss} title="Tipo de documento">
+          <option value="">Todos los docs</option>
+          <option value="remision">Remisión</option>
+          <option value="electronica">F. Electrónica</option>
+          <option value="soporte">Doc. Soporte</option>
+          <option value="cotizacion">Cotización</option>
+        </select>
         <div style={{ position: 'relative', flex: '0 0 260px' }}>
           <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="# Factura, cliente o identificación…"
@@ -248,7 +269,7 @@ export function VentasListadoPage() {
 
       {/* Grid */}
       <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <div style={{ height: 'calc(100vh - 380px)', minHeight: 320, width: '100%' }}>
+        <div style={{ height: 'calc(100vh - 380px)', minHeight: 320, width: '100%', ['--ag-font-family' as any]: 'inherit', ['--ag-font-size' as any]: '13px' }}>
           <AgGridReact<VentaRow>
             rowData={filtrados} columnDefs={cols} loading={loading} animateRows
             getRowId={(p) => String(p.data.id)} rowHeight={34} headerHeight={34}

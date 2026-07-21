@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Trash2, Plus, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, showApiError } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { imprimirVenta } from '../lib/impresion';
 
 /* ================================================================
  * Nueva Venta / POS — port 1:1 del NuevaVenta.tsx del desktop
@@ -9,7 +11,7 @@ import { api, showApiError } from '../lib/api';
  * al backend online (Laravel). Los TOTALES se calculan aquí solo
  * para mostrar; el servidor (VentaCalculator) recalcula al guardar.
  *
- * Fuera de alcance (subfases siguientes): impresión, envío real a DIAN,
+ * Fuera de alcance (subfases siguientes): envío real a DIAN,
  * caja, retenciones en pantalla, contingencia.
  * ============================================================== */
 
@@ -41,6 +43,7 @@ interface Linea {
 const CLIENTE_VACIO: Cliente = { id: null, nombre: '', nit: '', tel: '', cupo: 0, esCliente: false };
 
 export function VentasPage() {
+  const { empresaActiva } = useAuth();
   const [ivaIncluido, setIvaIncluido] = useState(true);
   const [usaFe, setUsaFe] = useState(false);
   const [medios, setMedios] = useState<MedioPago[]>([]);
@@ -177,7 +180,39 @@ export function VentasPage() {
         })),
       };
       const { data } = await api.post<{ venta: { numero: number } }>('/ventas', payload);
-      toast.success(`${esCotizacion ? 'Cotización' : 'Venta'} #${data.venta.numero} guardada`);
+      const numero = data.venta.numero;
+      toast.success(`${esCotizacion ? 'Cotización' : 'Remisión'} #${numero} guardada`);
+
+      // Impresión (vista previa) con los datos de la venta recién guardada,
+      // antes de limpiar el formulario.
+      imprimirVenta({
+        numero,
+        titulo: esCotizacion ? 'COTIZACIÓN' : 'REMISIÓN DE VENTA',
+        fecha: new Date().toLocaleString('es-CO'),
+        tipo,
+        dias: tipo === 'Crédito' ? dias : 0,
+        esCotizacion,
+        cliente: { nombre: cliente.nombre, nit: cliente.nit, telefono: cliente.tel, direccion: '' },
+        empresa: { nombre: empresaActiva?.razon_social ?? '', nit: empresaActiva?.nit ?? '', telefono: '', direccion: '' },
+        items: lineas.map((l) => ({
+          codigo: l.codigo,
+          nombre: l.esServicio ? (l.descripcionTemp || l.nombre) : l.nombre,
+          cantidad: l.cantidad, precio: l.precioVenta, iva: l.iva, descuento: l.descuento,
+          subtotal: subtotalLinea(l),
+        })),
+        subtotal: lineas.reduce((s, l) => s + subtotalLinea(l), 0),
+        descuento: descuentoGlobal,
+        iva: totalIva,
+        total,
+        efectivo: pagoEfectivoNum,
+        transferencia: pagoTransfNum,
+        cambio: cambioPago,
+        abono: pagoAbonoNum,
+        saldo: Math.max(total - pagoAbonoNum, 0),
+        medioPago: medios.find((m) => m.id === pagoMedioTransf)?.nombre ?? '',
+        vendedor: '',
+      });
+
       setShowPagoModal(false);
       nueva();
     } catch (e) {

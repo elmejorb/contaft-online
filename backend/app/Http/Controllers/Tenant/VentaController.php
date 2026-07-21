@@ -53,7 +53,7 @@ class VentaController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $venta = Venta::with(['lineas', 'retenciones', 'pagos', 'cliente', 'vendedor'])->findOrFail($id);
+        $venta = Venta::with(['lineas.producto:id,codigo,nombre', 'retenciones', 'pagos', 'cliente', 'vendedor'])->findOrFail($id);
         return response()->json(['venta' => $venta]);
     }
 

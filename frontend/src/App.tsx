@@ -13,6 +13,7 @@ import { ProductosPage } from './pages/Productos';
 import { FamiliasPage } from './pages/Familias';
 import { ProveedoresPage } from './pages/Proveedores';
 import { VentasPage } from './pages/Ventas';
+import { VentasListadoPage } from './pages/VentasListado';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, loading } = useAuth();
@@ -46,6 +47,7 @@ function App() {
             <Route path="/productos"   element={<ProductosPage />} />
             <Route path="/familias"    element={<FamiliasPage />} />
             <Route path="/ventas"      element={<VentasPage />} />
+            <Route path="/facturas"    element={<VentasListadoPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

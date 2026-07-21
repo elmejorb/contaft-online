@@ -210,6 +210,23 @@ class VentaStoreTest extends TestCase
         $this->assertEquals(1900.0, (float) $saldo);
     }
 
+    public function test_detalle_incluye_producto_en_lineas(): void
+    {
+        $this->comoUsuario();
+        $cli = $this->cliente();
+        $prod = $this->producto(['codigo' => 'ABC', 'nombre' => 'Cosa Linda']);
+
+        $id = $this->withHeaders($this->headers())->postJson('/api/ventas', [
+            'tipo_documento' => 'remision', 'cliente_id' => $cli->id,
+            'lineas' => [['producto_id' => $prod->id, 'cantidad' => 1]],
+        ])->assertCreated()->json('venta.id');
+
+        $this->withHeaders($this->headers())->getJson("/api/ventas/{$id}")
+            ->assertOk()
+            ->assertJsonPath('venta.lineas.0.producto.codigo', 'ABC')
+            ->assertJsonPath('venta.lineas.0.producto.nombre', 'Cosa Linda');
+    }
+
     public function test_aislamiento_no_ve_ventas_de_otra_empresa(): void
     {
         // Venta de la empresa A

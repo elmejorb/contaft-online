@@ -48,7 +48,7 @@ const MENU: MenuGroup[] = [
     label: 'Ventas',
     items: [
       { to: '/ventas',   label: 'Nueva Venta',   icon: ShoppingCart },
-      { to: '/facturas', label: 'Listado Ventas', icon: FileText,     disabled: true },
+      { to: '/facturas', label: 'Listado Ventas', icon: FileText },
       { to: '/cartera',  label: 'Cartera',        icon: Wallet,       disabled: true },
     ],
   },

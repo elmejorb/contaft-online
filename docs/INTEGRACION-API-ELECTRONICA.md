@@ -110,6 +110,18 @@ técnico del DS (regla **DSAJ25b**; ver también DSAJ25a que valida el código `
 - Pendiente conjunto: confirmar la lista exacta de la tabla 16.2.1 (no se pudo extraer
   el PDF por ahora) y alinear el catálogo `dian_tipos_documento` de Conta FT con ella.
 
+## 3.2 Medios de pago (payment_method_code)
+
+`medios_pago.codigo_dian` de Conta FT mapea al catálogo de api-electronica:
+10=Efectivo, 11=Transferencia, 12=Cheque, 13=Tarjeta débito, 14=Tarjeta crédito.
+Los medios "de marca" (Bancolombia, Nequi, Daviplata) son subcategorías operativas
+que apuntan todas a **11 (Transferencia)** — al emitir FE se envía `codigo_dian`, no el
+nombre. `payment_form_id` ya se persiste en ventas (1=Contado, 2=Crédito).
+
+**Tarea Conta FT (Subfase 4):** al armar el request FE, mapear el medio de la venta a
+`payment_form.payment_method_id` usando `codigo_dian` (buscar el id en el catálogo de
+api-electronica por code).
+
 ## 4. Pendiente de revisar (cuando lleguemos a FE — Subfase 4)
 - Documento Soporte (`documento_soporte_ubl21.blade.php`) y notas crédito/débito: mismo
   ejercicio de contrato.

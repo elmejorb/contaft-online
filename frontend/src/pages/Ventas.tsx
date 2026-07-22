@@ -5,6 +5,7 @@ import { api, showApiError } from '../lib/api';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { imprimirVenta } from '../lib/impresion';
+import { formatMoney, MoneyInput } from '../lib/money';
 
 /* ================================================================
  * Nueva Venta / POS — port 1:1 del NuevaVenta.tsx del desktop
@@ -16,8 +17,7 @@ import { imprimirVenta } from '../lib/impresion';
  * caja, retenciones en pantalla, contingencia.
  * ============================================================== */
 
-const fmtMon = (v: number | string | null | undefined) =>
-  '$ ' + Math.round(Number(v ?? 0) || 0).toLocaleString('es-CO');
+const fmtMon = formatMoney;
 const toNum = (v: string | number | null | undefined) => Number(v ?? 0) || 0;
 const soloNum = (e: React.KeyboardEvent) => {
   const allow = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Enter', 'Home', 'End'];
@@ -65,10 +65,10 @@ export function VentasPage() {
   const [guardando, setGuardando] = useState(false);
 
   // pago
-  const [pagoEfectivo, setPagoEfectivo] = useState('');
-  const [pagoTransferencia, setPagoTransferencia] = useState('');
+  const [pagoEfectivo, setPagoEfectivo] = useState(0);
+  const [pagoTransferencia, setPagoTransferencia] = useState(0);
   const [pagoMedioTransf, setPagoMedioTransf] = useState<number>(0);
-  const [pagoAbono, setPagoAbono] = useState('');
+  const [pagoAbono, setPagoAbono] = useState(0);
 
   const esCotizacion = tipoDocumento === 'cotizacion';
 
@@ -127,9 +127,9 @@ export function VentasPage() {
     return { subtotal: sub, totalIva: iva, total: Math.max(t, 0) };
   }, [lineas, ivaIncluido, descuentoGlobal]);
 
-  const pagoEfectivoNum = parseInt(pagoEfectivo || '0');
-  const pagoTransfNum = parseInt(pagoTransferencia || '0');
-  const pagoAbonoNum = parseInt(pagoAbono || '0');
+  const pagoEfectivoNum = pagoEfectivo;
+  const pagoTransfNum = pagoTransferencia;
+  const pagoAbonoNum = pagoAbono;
   const totalPagado = pagoEfectivoNum + pagoTransfNum;
   const cambioPago = Math.max(totalPagado - total, 0);
   const faltaPagar = Math.max(total - totalPagado, 0);
@@ -145,7 +145,7 @@ export function VentasPage() {
   }
   function nueva() {
     setLineas([]); setDescuentoGlobal(0); setNota('');
-    setPagoEfectivo(''); setPagoTransferencia(''); setPagoAbono('');
+    setPagoEfectivo(0); setPagoTransferencia(0); setPagoAbono(0);
   }
   function finalizar() {
     if (!cliente.id) return toast.error('Selecciona un cliente');
@@ -427,8 +427,7 @@ export function VentasPage() {
         </div>
         <div>
           <label style={{ fontSize: 9, color: '#6b7280' }}>DESC. GLOBAL</label>
-          <input type="text" value={descuentoGlobal || ''} placeholder="0"
-            onChange={(e) => setDescuentoGlobal(parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+          <MoneyInput value={descuentoGlobal} onChange={setDescuentoGlobal} placeholder="0" className=""
             style={{ display: 'block', height: 26, width: 80, textAlign: 'right', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12, padding: '0 6px' }} />
         </div>
         <div style={{ flex: 1 }}>
@@ -487,8 +486,7 @@ export function VentasPage() {
                         {medios.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                       </select>
                     </div>
-                    <input type="text" placeholder="$ 0" value={pagoTransferencia} autoFocus
-                      onChange={(e) => setPagoTransferencia(e.target.value.replace(/[^0-9]/g, ''))}
+                    <MoneyInput value={pagoTransferencia} onChange={setPagoTransferencia} autoFocus className=""
                       onKeyDown={(e) => { if (e.key === 'Enter') (document.querySelector('[data-pago-efectivo]') as HTMLInputElement)?.focus(); }}
                       style={{ width: 130, height: 32, textAlign: 'right', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, fontWeight: 700, padding: '0 10px', outline: 'none' }} />
                   </div>
@@ -498,9 +496,8 @@ export function VentasPage() {
                       <div style={{ fontSize: 12, fontWeight: 600 }}>Efectivo</div>
                       {pagoTransfNum > 0 && <div style={{ fontSize: 10, color: '#6b7280' }}>Restante: {fmtMon(Math.max(total - pagoTransfNum, 0))}</div>}
                     </div>
-                    <input type="text" data-pago-efectivo="true" value={pagoEfectivo}
+                    <MoneyInput value={pagoEfectivo} onChange={setPagoEfectivo} data-pago-efectivo="true" className=""
                       placeholder={pagoTransfNum > 0 ? fmtMon(Math.max(total - pagoTransfNum, 0)) : fmtMon(total)}
-                      onChange={(e) => setPagoEfectivo(e.target.value.replace(/[^0-9]/g, ''))}
                       onKeyDown={(e) => { if (e.key === 'Enter') confirmarVenta(); }}
                       style={{ width: 130, height: 32, textAlign: 'right', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, fontWeight: 700, padding: '0 10px', outline: 'none' }} />
                   </div>
@@ -516,8 +513,7 @@ export function VentasPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, padding: '10px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>💰</div>
                     <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 600 }}>Abono</div><div style={{ fontSize: 10, color: '#6b7280' }}>Deje en 0 si no hay abono</div></div>
-                    <input type="text" placeholder="$ 0" value={pagoAbono} autoFocus
-                      onChange={(e) => setPagoAbono(e.target.value.replace(/[^0-9]/g, ''))}
+                    <MoneyInput value={pagoAbono} onChange={setPagoAbono} autoFocus className="" placeholder="$ 0"
                       style={{ width: 130, height: 32, textAlign: 'right', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, fontWeight: 700, padding: '0 10px', outline: 'none' }} />
                   </div>
                   <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>

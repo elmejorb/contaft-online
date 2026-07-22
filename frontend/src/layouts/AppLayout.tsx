@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import { setMoneda } from '../lib/money';
 import {
   LayoutDashboard, Users, Package, Boxes, Percent, FileText, ShoppingCart,
   Wallet, Settings, Building2, User, LogOut, ChevronDown, Menu, X, Truck, Calculator,
@@ -68,6 +70,13 @@ export function AppLayout() {
   const { usuario, empresas, empresaActiva, switchEmpresa, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Fija la moneda de la empresa (COP por defecto) para todo el formateo.
+  useEffect(() => {
+    api.get<{ config: { moneda: string } }>('/empresa-config')
+      .then(({ data }) => setMoneda(data.config?.moneda))
+      .catch(() => {});
+  }, [empresaActiva?.id]);
 
   // Sesión sin empresa activa (p.ej. token viejo de una empresa eliminada):
   // en vez de dejar la pantalla en blanco, mostramos una salida clara.

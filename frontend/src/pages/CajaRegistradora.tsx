@@ -3,6 +3,7 @@ import { RefreshCw, LockOpen, Lock, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, showApiError } from '../lib/api';
 import { PageHeader, Card, Button, Field, Input, Select } from '../components/ui';
+import { formatMoney, MoneyInput } from '../lib/money';
 
 /* CajaRegistradora — abrir / estado (cuadre en vivo) / cerrar. */
 
@@ -19,7 +20,7 @@ interface Sesion {
 }
 
 const num = (v: string | number | null | undefined) => Number(v ?? 0) || 0;
-const money = (v: string | number | null | undefined) => '$ ' + Math.round(num(v)).toLocaleString('es-CO');
+const money = formatMoney;
 
 export function CajaRegistradoraPage() {
   const [cajas, setCajas] = useState<Caja[]>([]);
@@ -27,10 +28,10 @@ export function CajaRegistradoraPage() {
   const [loading, setLoading] = useState(true);
   // apertura
   const [cajaId, setCajaId] = useState<number | 0>(0);
-  const [base, setBase] = useState('');
+  const [base, setBase] = useState(0);
   const [abriendo, setAbriendo] = useState(false);
   // cierre
-  const [conteo, setConteo] = useState('');
+  const [conteo, setConteo] = useState(0);
   const [observacion, setObservacion] = useState('');
   const [cerrando, setCerrando] = useState(false);
 
@@ -55,8 +56,8 @@ export function CajaRegistradoraPage() {
     if (!cajaId) return toast.error('Selecciona una caja');
     setAbriendo(true);
     try {
-      const { data } = await api.post<{ sesion: Sesion }>('/caja-sesion/abrir', { caja_id: cajaId, base_inicial: num(base) });
-      setSesion(data.sesion); setBase('');
+      const { data } = await api.post<{ sesion: Sesion }>('/caja-sesion/abrir', { caja_id: cajaId, base_inicial: base });
+      setSesion(data.sesion); setBase(0);
       toast.success('Caja abierta');
     } catch (e) { showApiError(e, 'No se pudo abrir la caja'); }
     finally { setAbriendo(false); }
@@ -64,22 +65,22 @@ export function CajaRegistradoraPage() {
 
   async function cerrar() {
     if (!sesion) return;
-    if (conteo === '') return toast.error('Ingresa el conteo físico de efectivo');
+    if (!conteo) return toast.error('Ingresa el conteo físico de efectivo');
     if (!confirm('¿Cerrar la caja? No podrás registrar más ventas de contado hasta abrir de nuevo.')) return;
     setCerrando(true);
     try {
       const { data } = await api.post<{ sesion: { diferencia_final: string } }>(`/caja-sesion/${sesion.id}/cerrar`, {
-        conteo: num(conteo), observacion: observacion || null,
+        conteo, observacion: observacion || null,
       });
       const dif = num(data.sesion.diferencia_final);
       toast.success(dif === 0 ? 'Caja cerrada — cuadra exacto ✓' : `Caja cerrada — diferencia ${money(dif)}`, { duration: 7000 });
-      setSesion(null); setConteo(''); setObservacion('');
+      setSesion(null); setConteo(0); setObservacion('');
     } catch (e) { showApiError(e, 'No se pudo cerrar'); }
     finally { setCerrando(false); }
   }
 
   const totalSistema = num(sesion?.cuadre.total_efectivo_sistema);
-  const diferencia = useMemo(() => (conteo === '' ? null : num(conteo) - totalSistema), [conteo, totalSistema]);
+  const diferencia = useMemo(() => (conteo === 0 ? null : conteo - totalSistema), [conteo, totalSistema]);
 
   if (loading) return <div className="p-6 text-gray-400 text-sm">Cargando…</div>;
 
@@ -105,7 +106,7 @@ export function CajaRegistradoraPage() {
                 </Select>
               </Field>
               <Field label="Base inicial (efectivo)">
-                <Input type="number" min={0} value={base} onChange={(e) => setBase(e.target.value)} placeholder="0" />
+                <MoneyInput value={base} onChange={setBase} placeholder="0" />
               </Field>
               <div className="sm:col-span-2">
                 <Button onClick={abrir} disabled={abriendo}><LockOpen size={14} /> {abriendo ? 'Abriendo…' : 'Abrir caja'}</Button>
@@ -151,7 +152,7 @@ export function CajaRegistradoraPage() {
             <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Cierre / arqueo</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Conteo físico de efectivo" hint="Cuánto efectivo hay realmente en la caja">
-                <Input type="number" min={0} value={conteo} onChange={(e) => setConteo(e.target.value)} placeholder="0" autoFocus />
+                <MoneyInput value={conteo} onChange={setConteo} placeholder="0" autoFocus />
               </Field>
               <Field label="Diferencia">
                 <div className={`h-8 flex items-center px-2.5 rounded-md text-sm font-bold ${

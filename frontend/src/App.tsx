@@ -15,6 +15,7 @@ import { ProveedoresPage } from './pages/Proveedores';
 import { VentasPage } from './pages/Ventas';
 import { VentasListadoPage } from './pages/VentasListado';
 import { ConfigCajasPage } from './pages/ConfigCajas';
+import { CajaRegistradoraPage } from './pages/CajaRegistradora';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, loading } = useAuth();
@@ -50,6 +51,7 @@ function App() {
             <Route path="/ventas"      element={<VentasPage />} />
             <Route path="/facturas"    element={<VentasListadoPage />} />
             <Route path="/cajas"       element={<ConfigCajasPage />} />
+            <Route path="/caja"        element={<CajaRegistradoraPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

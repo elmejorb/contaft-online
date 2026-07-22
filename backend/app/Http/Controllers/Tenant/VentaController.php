@@ -99,6 +99,18 @@ class VentaController extends Controller
         $esCotizacion  = $tipoDocumento === 'cotizacion';
         $diasCredito   = $tipoTermino === 'credito' ? (int) ($data['dias_credito'] ?? 0) : 0;
 
+        // Caja: validar la sesión (si viene) y aplicar la regla usa_caja.
+        $cajaSesionId = $data['caja_sesion_id'] ?? null;
+        if ($cajaSesionId && !\App\Models\Tenant\CajaSesion::where('id', $cajaSesionId)->where('estado', 'abierta')->exists()) {
+            $cajaSesionId = null;
+        }
+        if ($config->usa_caja && $tipoTermino === 'contado' && !$esCotizacion && !$cajaSesionId) {
+            abort(response()->json([
+                'message' => 'Debes abrir una caja para registrar ventas de contado.',
+                'errors'  => ['caja' => ['Sin caja abierta']],
+            ], 422));
+        }
+
         // Resolver líneas y retenciones contra el catálogo (fuente autoritativa).
         $lineasIn = $this->resolverLineas($data['lineas'], (int) ($data['lista_precio'] ?? 1));
         $retIn    = $this->resolverRetenciones($data['retenciones'] ?? []);
@@ -121,7 +133,7 @@ class VentaController extends Controller
 
         $venta = DB::connection('landlord')->transaction(function () use (
             $data, $calc, $tipoDocumento, $tipoTermino, $diasCredito, $esCotizacion,
-            $fecha, $usuarioId
+            $fecha, $usuarioId, $cajaSesionId
         ) {
             $numero = $this->siguienteNumero($tipoDocumento);
 
@@ -149,6 +161,7 @@ class VentaController extends Controller
                 'payment_due_days' => $tipoTermino === 'credito' ? $diasCredito : null,
                 'estado'           => 'valida',
                 'usuario_id'       => $usuarioId,
+                'caja_sesion_id'   => $cajaSesionId,
             ]);
 
             foreach ($calc['lineas'] as $l) {
@@ -182,15 +195,16 @@ class VentaController extends Controller
             // Abono inicial de una venta a crédito → fila en pagos (cartera).
             if ($tipoTermino === 'credito' && (float) ($data['abono_inicial'] ?? 0) > 0) {
                 Pago::create([
-                    'consecutivo'   => $this->siguienteConsecutivoPago(),
-                    'fecha'         => $fecha,
-                    'cliente_id'    => $data['cliente_id'],
-                    'venta_id'      => $venta->id,
-                    'medio_pago_id' => $data['medio_pago_id'] ?? 1,
-                    'valor'         => $data['abono_inicial'],
-                    'detalle'       => 'Abono inicial',
-                    'usuario_id'    => $usuarioId,
-                    'estado'        => 'valida',
+                    'consecutivo'    => $this->siguienteConsecutivoPago(),
+                    'fecha'          => $fecha,
+                    'cliente_id'     => $data['cliente_id'],
+                    'venta_id'       => $venta->id,
+                    'medio_pago_id'  => $data['medio_pago_id'] ?? 1,
+                    'valor'          => $data['abono_inicial'],
+                    'detalle'        => 'Abono inicial',
+                    'usuario_id'     => $usuarioId,
+                    'caja_sesion_id' => $cajaSesionId,
+                    'estado'         => 'valida',
                 ]);
             }
 
@@ -269,6 +283,7 @@ class VentaController extends Controller
             'efectivo'                => 'nullable|numeric|min:0',
             'transferencia'           => 'nullable|numeric|min:0',
             'abono_inicial'           => 'nullable|numeric|min:0',
+            'caja_sesion_id'          => 'nullable|integer|exists:landlord.caja_sesiones,id',
 
             'lineas'                  => 'required|array|min:1',
             'lineas.*.producto_id'    => 'required|integer|exists:landlord.productos,id',

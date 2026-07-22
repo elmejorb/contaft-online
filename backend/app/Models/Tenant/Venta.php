@@ -39,6 +39,7 @@ class Venta extends Model
         'enviada_dian_at', 'email_enviado', 'email_enviado_at',
         'estado', 'anulada_at', 'anulada_por', 'anulada_motivo',
         'usuario_id', 'autorizado_por', 'en_contingencia', 'contingencia_motivo',
+        'caja_sesion_id',
     ];
 
     protected $casts = [

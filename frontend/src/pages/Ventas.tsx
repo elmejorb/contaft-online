@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Trash2, Plus, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, showApiError } from '../lib/api';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { imprimirVenta } from '../lib/impresion';
 
@@ -46,6 +47,8 @@ export function VentasPage() {
   const { empresaActiva } = useAuth();
   const [ivaIncluido, setIvaIncluido] = useState(true);
   const [usaFe, setUsaFe] = useState(false);
+  const [usaCaja, setUsaCaja] = useState(false);
+  const [cajaSesion, setCajaSesion] = useState<{ id: number; caja?: { nombre: string } } | null>(null);
   const [medios, setMedios] = useState<MedioPago[]>([]);
 
   const [tipoDocumento, setTipoDocumento] = useState<'remision' | 'electronica' | 'cotizacion'>('remision');
@@ -70,8 +73,14 @@ export function VentasPage() {
   const esCotizacion = tipoDocumento === 'cotizacion';
 
   useEffect(() => {
-    api.get<{ config: { iva_incluido: boolean; usa_fe: boolean } }>('/empresa-config')
-      .then(({ data }) => { setIvaIncluido(!!data.config?.iva_incluido); setUsaFe(!!data.config?.usa_fe); }).catch(() => {});
+    api.get<{ config: { iva_incluido: boolean; usa_fe: boolean; usa_caja: boolean } }>('/empresa-config')
+      .then(({ data }) => {
+        setIvaIncluido(!!data.config?.iva_incluido);
+        setUsaFe(!!data.config?.usa_fe);
+        setUsaCaja(!!data.config?.usa_caja);
+      }).catch(() => {});
+    api.get<{ sesion: { id: number; caja?: { nombre: string } } | null }>('/caja-sesion/actual')
+      .then(({ data }) => setCajaSesion(data.sesion)).catch(() => {});
     api.get<{ medios_pago: MedioPago[] }>('/medios-pago')
       .then(({ data }) => { setMedios(data.medios_pago); if (data.medios_pago[0]) setPagoMedioTransf(data.medios_pago[0].id); })
       .catch(() => {});
@@ -142,6 +151,9 @@ export function VentasPage() {
     if (!cliente.id) return toast.error('Selecciona un cliente');
     if (lineas.length === 0) return toast.error('Agrega al menos un producto');
     if (tipo === 'Crédito' && !cliente.esCliente) return toast.error('Selecciona un cliente real para crédito');
+    if (usaCaja && !esCotizacion && tipo === 'Contado' && !cajaSesion) {
+      return toast.error('Abre una caja para vender de contado (módulo Caja).');
+    }
     if (esCotizacion) { confirmarVenta(); return; }
     setShowPagoModal(true);
   }
@@ -173,6 +185,7 @@ export function VentasPage() {
         efectivo: tipo === 'Contado' && !esCotizacion ? pagoEfectivoNum : 0,
         transferencia: tipo === 'Contado' && !esCotizacion ? pagoTransfNum : 0,
         abono_inicial: tipo === 'Crédito' ? pagoAbonoNum : 0,
+        caja_sesion_id: cajaSesion?.id ?? null,
         lineas: lineas.map((l) => ({
           producto_id: l.producto_id, cantidad: l.cantidad, precio_venta: l.precioVenta,
           descuento: l.descuento, iva_pct: l.iva,
@@ -231,6 +244,17 @@ export function VentasPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', padding: 12 }}>
+      {usaCaja && !cajaSesion && (
+        <div style={{ marginBottom: 6, padding: '6px 12px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>⚠ No hay una caja abierta — no podrás registrar ventas de contado.</span>
+          <Link to="/caja" style={{ color: '#7c3aed', fontWeight: 700 }}>Abrir caja →</Link>
+        </div>
+      )}
+      {cajaSesion && (
+        <div style={{ marginBottom: 6, fontSize: 11, color: '#16a34a' }}>
+          🟢 Caja abierta: <b>{cajaSesion.caja?.nombre ?? ''}</b>
+        </div>
+      )}
       {/* Fila 1: Datos factura */}
       <div style={{ ...card, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
         <div>

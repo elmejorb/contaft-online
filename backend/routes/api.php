@@ -8,6 +8,7 @@ use App\Http\Controllers\Tenant\FamiliaController;
 use App\Http\Controllers\Tenant\ProductoController;
 use App\Http\Controllers\Tenant\ProveedorController;
 use App\Http\Controllers\Tenant\CajaController;
+use App\Http\Controllers\Tenant\CajaSesionController;
 use App\Http\Controllers\Tenant\VentaCatalogoController;
 use App\Http\Controllers\Tenant\VentaController;
 use Illuminate\Http\Request;
@@ -93,6 +94,11 @@ Route::middleware(['auth:sanctum', 'resolve.tenant'])->group(function () {
     Route::post('/cajas',        [CajaController::class, 'store']);
     Route::put('/cajas/{id}',    [CajaController::class, 'update'])->whereNumber('id');
     Route::delete('/cajas/{id}', [CajaController::class, 'destroy'])->whereNumber('id');
+
+    // === Sesiones de caja (abrir / estado / cerrar) ===
+    Route::get('/caja-sesion/actual',        [CajaSesionController::class, 'actual']);
+    Route::post('/caja-sesion/abrir',        [CajaSesionController::class, 'abrir']);
+    Route::post('/caja-sesion/{id}/cerrar',  [CajaSesionController::class, 'cerrar'])->whereNumber('id');
 
     // Próximamente: /pagos (cartera), /kardex, /facturas-recibidas, ...
 });

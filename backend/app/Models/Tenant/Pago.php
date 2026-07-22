@@ -27,7 +27,7 @@ class Pago extends Model
     protected $fillable = [
         'empresa_id', 'consecutivo', 'fecha', 'cliente_id', 'venta_id',
         'medio_pago_id', 'valor', 'descuento', 'retencion', 'detalle',
-        'usuario_id', 'estado', 'anulado_at', 'anulado_por', 'anulado_motivo',
+        'usuario_id', 'caja_sesion_id', 'estado', 'anulado_at', 'anulado_por', 'anulado_motivo',
     ];
 
     protected $casts = [

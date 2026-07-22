@@ -32,7 +32,7 @@ interface ProductoApi {
   es_servicio: boolean; existencia: string | number;
 }
 interface ClienteApi { id: number; razon_social: string; identificacion: string; telefono: string | null; cupo_credito: string | number; dias_credito: number }
-interface MedioPago { id: number; nombre: string }
+interface MedioPago { id: number; nombre: string; tipo: string }
 
 interface Cliente { id: number | null; nombre: string; nit: string; tel: string; cupo: number; esCliente: boolean }
 interface Linea {
@@ -82,7 +82,13 @@ export function VentasPage() {
     api.get<{ sesion: { id: number; caja?: { nombre: string } } | null }>('/caja-sesion/actual')
       .then(({ data }) => setCajaSesion(data.sesion)).catch(() => {});
     api.get<{ medios_pago: MedioPago[] }>('/medios-pago')
-      .then(({ data }) => { setMedios(data.medios_pago); if (data.medios_pago[0]) setPagoMedioTransf(data.medios_pago[0].id); })
+      .then(({ data }) => {
+        setMedios(data.medios_pago);
+        // El selector de "transferencia/tarjeta" NO debe incluir efectivo
+        // (el efectivo tiene su propio campo). Default = primer medio no-efectivo.
+        const noEfectivo = data.medios_pago.find((m) => m.tipo !== 'efectivo');
+        if (noEfectivo) setPagoMedioTransf(noEfectivo.id);
+      })
       .catch(() => {});
     // Cliente por defecto: CONSUMIDOR FINAL (222222222222)
     api.get<{ data: ClienteApi[] }>('/clientes', { params: { q: '222222222222', per_page: 1 } })
@@ -483,7 +489,7 @@ export function VentasPage() {
                     <div style={{ flex: 1 }}>
                       <select value={pagoMedioTransf} onChange={(e) => setPagoMedioTransf(parseInt(e.target.value))}
                         style={{ height: 26, border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12, padding: '0 4px' }}>
-                        {medios.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                        {medios.filter((m) => m.tipo !== 'efectivo').map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                       </select>
                     </div>
                     <MoneyInput value={pagoTransferencia} onChange={setPagoTransferencia} autoFocus className=""
